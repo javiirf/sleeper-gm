@@ -140,8 +140,9 @@ def plan(wk, me, opp, roster, owner, process_ms, limit, existing=()):
         if a not in candidates or (d is not None and d not in droppable) or (d is None and len(active) >= max_active):
             return None
         p = decide(moves.with_player(wk, team, a, d, after_ms=process_ms), opp, D, n=4000).p_win
-        score = p - base + moves.KAPPA * (moves.keep_value(wk, a) - (moves.keep_value(wk, d) if d else 0))
-        threshold = (moves.SWAP_EDGE if d else 0) + cost
+        ros_gain = moves.keep_value(wk, a) - (moves.keep_value(wk, d) if d else 0)
+        score = p - base + moves.KAPPA * ros_gain
+        threshold = (moves.swap_edge(p - base, ros_gain) if d else 0) + cost
         if score <= 0 or score < threshold:
             scored[key] = None
         else:

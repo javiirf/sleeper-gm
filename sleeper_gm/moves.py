@@ -17,6 +17,7 @@ IR_FLAGS = {"Out": "reserve_allow_out", "Sus": "reserve_allow_sus", "Suspended":
             "Doubtful": "reserve_allow_doubtful", "NA": "reserve_allow_na", "COV": "reserve_allow_cov"}
 KAPPA = 0.004       # P(win) points per fantasy point per game of rest-of-season value
 SWAP_EDGE = 0.03    # a swap must be worth 3 points of win probability (or the ROS equivalent)
+DOMINANT_EDGE = 0.015  # ...unless the add is better this week AND rest of season, so less can be wrong
 
 
 def ir_eligible(league, status):
@@ -45,6 +46,11 @@ def roster_limits(league):
 def ros(wk, pid):
     """Talent and role per game, ignoring a current injury (ranks who to protect)."""
     return float(wk.model.ros_value(pid, wk.now_ms))
+
+
+def swap_edge(week_gain, ros_gain):
+    """Score an add/drop must clear: lower when the add wins on both counts."""
+    return DOMINANT_EDGE if week_gain > 0 and ros_gain > 0 else SWAP_EDGE
 
 
 def keep_value(wk, pid, horizon=4):
@@ -172,7 +178,7 @@ def with_player(wk, team, add, drop=None, after_ms=None):
 
 def best_move(wk, team, opp, roster, exclude=()):
     """The single best roster move now: fill an open active spot, or an add/drop swap that
-    clears SWAP_EDGE. None if nothing is worth doing."""
+    clears swap_edge. None if nothing is worth doing."""
     if not wk.days:
         return None
     D = len(wk.days)
@@ -199,10 +205,11 @@ def best_move(wk, team, opp, roster, exclude=()):
     for d in droppable[:3]:
         for a in shortlist:
             p = decide(with_player(wk, team, a, drop=d), opp, D, n=4000).p_win
-            sc = (p - base_p) + KAPPA * (keep_value(wk, a) - keep_value(wk, d))
-            if best is None or sc > best[0]:
+            ros_gain = keep_value(wk, a) - keep_value(wk, d)
+            sc = (p - base_p) + KAPPA * ros_gain
+            if sc >= swap_edge(p - base_p, ros_gain) and (best is None or sc > best[0]):
                 best = (sc, a, d, p)
-    if best and best[0] >= SWAP_EDGE:
+    if best:
         sc, a, d, p = best
         return Move("swap", add=a, drop=d, score=sc,
                     why=f"{wk.name(a)} ({ros(wk, a):.1f}/g) for {wk.name(d)} ({ros(wk, d):.1f}/g), week win {base_p:.0%}->{p:.0%}")

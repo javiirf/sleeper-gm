@@ -498,3 +498,21 @@ def test_writer_redacts_token_in_claim_summary(monkeypatch):
     monkeypatch.setattr(auth, "_cached", lambda: "private-sentinel")
     api.Writer(False, logs.append).submit_claim("fake", 1, "add", summary="private-sentinel")
     assert "private-sentinel" not in json.dumps(logs) and "<token>" in json.dumps(logs)
+
+
+@pytest.mark.parametrize("add,week_gain,placed", [
+    (13, .012, True),    # better this week and rest of season: .016 clears the 1.5% bar
+    (11, .022, False),   # better this week, worse rest of season: .018 is under the 3% bar
+    (11, .036, True),    # same trade-off with a big enough week gain
+])
+def test_claim_bar_is_lower_only_when_add_wins_both_ways(monkeypatch, add, week_gain, placed):
+    wk, me, opp, r = fixture(monkeypatch, values={"core": 40, "cut": 12, "add": add, "alt": 5, "owner_add": 24})
+    monkeypatch.setattr(claims, "decide", lambda t, *a, **kw: SimpleNamespace(p_win=.5 if t is me else .5 + week_gain))
+    planned = claims.plan(wk, me, opp, r, [], PROCESS, 3)
+    assert [p["add"] for p in planned] == (["add"] if placed else [])
+
+
+@pytest.mark.parametrize("week_gain,ros_gain,edge", [(.01, 1, moves.DOMINANT_EDGE), (.01, -1, moves.SWAP_EDGE),
+                                                     (-.01, 1, moves.SWAP_EDGE), (0, 1, moves.SWAP_EDGE)])
+def test_swap_edge(week_gain, ros_gain, edge):
+    assert moves.swap_edge(week_gain, ros_gain) == edge
