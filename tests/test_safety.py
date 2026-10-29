@@ -458,11 +458,14 @@ def test_waiver_refusals_are_remembered_for_the_day(home):
     assert ctx.on_waivers() == {"a", "b"}
 
 
-@pytest.mark.parametrize("age_h,skipped", [(1, True), (5.9, True), (6.1, False)])
-def test_waiver_skip_expires_so_morning_runs_retry(home, monkeypatch, age_h, skipped):
-    ctx = cycle.Ctx(config.load(), "66", 1, True, None)
-    now = time.time()
-    monkeypatch.setattr(cycle.time, "time", lambda: now - age_h * 3600)
+@pytest.mark.parametrize("now_et,skipped", [("2026-10-29T02:00", True),
+                                                   ("2026-10-29T03:09", True),
+                                                   ("2026-10-29T03:10", False)])
+def test_waiver_skip_expires_at_processing(home, monkeypatch, now_et, skipped):
+    from datetime import datetime
+    ctx = cycle.Ctx(config.load(), "66", 1, False, None)
+    timestamp = lambda s: datetime.fromisoformat(s).replace(tzinfo=week.ET).timestamp()
+    monkeypatch.setattr(cycle.time, "time", lambda: timestamp("2026-10-28T18:00"))
     ctx.mark_on_waivers("a")
-    monkeypatch.setattr(cycle.time, "time", lambda: now)
+    monkeypatch.setattr(cycle.time, "time", lambda: timestamp(now_et))
     assert ("a" in ctx.on_waivers()) is skipped

@@ -1,4 +1,27 @@
 {
+ "claims": {
+  "bot": [
+   {
+    "add": "Alex Example",
+    "drop": "Sam Sample",
+    "seq": 2,
+    "why": "A stronger rotation role and more useful games after waivers."
+   }
+  ],
+  "owner": [
+   {
+    "add": "Taylor Example",
+    "drop": null
+   }
+  ],
+  "results": [
+   {
+    "message": "Got Morgan Sample (dropped Jamie Example)",
+    "status": "complete"
+   }
+  ],
+  "available": true
+ },
  "t": 1796353802300,
  "live": true,
  "league": {

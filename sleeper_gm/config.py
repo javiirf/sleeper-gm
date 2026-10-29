@@ -22,7 +22,9 @@ TOKEN_FILE = CONFIG_DIR / "token"
 DEFAULTS = {
     "leagues": "auto",              # "auto" = every in-season Lock-In NBA league you own, or a list of league ids
     "live": False,                  # writes happen only when this is true AND the run asks for --live
-    "moves": True,                  # free-agent adds and add/drop swaps
+    "moves": True,                  # free-agent adds, swaps and waiver claims
+    "max_claim_writes_per_day": 6,   # submit, update and cancel attempts per league, ET day
+    "max_claims": 3,                # bot claims pending per league, separate from immediate moves
     "max_transactions_per_day": 2,  # per league, IR-forced drops included
     "protect_top": 8,               # never drop your best N players (by rest-of-season value)
     "protect_ros": 30.0,            # never drop anyone worth this many fantasy points per game

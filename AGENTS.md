@@ -25,6 +25,24 @@ winning each weekly head-to-head matchup (and the season), not raw points.
   `league_rosters`, `league_transactions` need it. Never confirm a write from REST.
 - Lineup and locks are one `update_matchup_leg(round=week, leg=week, starters=[positional ids], starters_games=<JSON map>)`;
   `starters_games` must be the FULL map. `roster_update_starters` is the WRONG mutation (it scores nothing).
+- Claims use `submit_waiver_claim`, `update_waiver_claim`, and `cancel_waiver_claim` only.
+  Arguments and web strings are documented in `docs/sleeper-api-notes.md`. Rolling submits send
+  no settings; FAAB submits send only `waiver_bid: 0`. Never send metadata or write server-assigned
+  `seq`. Update only bot `priority`, and only when owner claims have explicit priorities;
+  preserve other writable settings and put bot priorities after the maximum owner priority.
+- Pending claims are authenticated `league_transactions(status:"pending", roster_id:...)` reads.
+  Bot ids and intents are local league state. Save a fresh pending-id baseline before submission;
+  recover by response id or a unique new pending add/drop identity, never an existing owner row.
+  An unresolved intent blocks further claims. Only bot claims may be updated/cancelled; owner claims go first. Up to `max_claims` (default 3) bot claims may be pending. Re-plan on full
+  runs, keeping eligible incumbents unless they fall below their required edge or a replacement
+  beats their current score by at least 0.01 P(win). Never change claims within 15 minutes of
+  estimated processing, and confirm in pending reads. At most `max_claim_writes_per_day` (default 6)
+  claim mutation attempts per league per ET day, including errors, counted from the writes log.
+- Estimate processing from median `status_updated` ET time on processed claims, default 03:10 ET.
+  Player waiver eligibility remains unknown until tried; a processing run does not prove clearance.
+  Three free-agent waiver refusals switch a league to claims until a successful free-agent add.
+  REST roster `settings.waiver_position` was verified read-only. Never use commissioner transaction tools.
+  Trades are never sent.
 - Writes live only in `sleeper_gm/api.py` `Writer`, which refuses unless live. Never retry a write.
 
 ## Working here

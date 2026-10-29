@@ -11,6 +11,7 @@ import os
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 REST = "https://api.sleeper.app/v1"
 REST2 = "https://api.sleeper.com"
@@ -123,9 +124,20 @@ def scores(season, week):
     return gql(q % (season, int(week)))["scores"]
 
 
-def league_transactions(league_id, leg):
-    q = '{ league_transactions(league_id:"%s", leg:%d){ transaction_id type status adds drops settings created leg roster_ids } }'
-    return gql(q % (league_id, int(leg)), auth=True)["league_transactions"]
+TRANSACTION_FIELDS = ("transaction_id type status adds drops settings creator created leg roster_ids "
+                      "metadata status_updated")
+
+
+def league_transactions(league_id, leg=None, status=None, roster_id=None):
+    args = [f"league_id:{json.dumps(str(league_id))}"]
+    if leg is not None:
+        args.append(f"leg:{int(leg)}")
+    if status is not None:
+        args.append(f"status:{json.dumps(status)}")
+    if roster_id is not None:
+        args.append(f"roster_id:{int(roster_id)}")
+    q = "{ league_transactions(%s){ %s } }" % (", ".join(args), TRANSACTION_FIELDS)
+    return gql(q, auth=True)["league_transactions"]
 
 
 # ---------------------------------------------------------------- writes
@@ -141,16 +153,20 @@ class Writer:
         entry = {"t": time.time(), "kind": kind, "summary": summary, "live": self.live, "query": query, "variables": variables}
         if not self.live:
             entry["result"] = "dry-run"
-            self.log(entry)
+            self.log(json.loads(redact(json.dumps(entry, default=str))))
             return None
+        if kind in ("submit_claim", "update_claim", "cancel_claim"):
+            # Charge the attempt before the request, including a crash before any response.
+            entry.update(write_id=uuid.uuid4().hex, result="attempt")
+            self.log(json.loads(redact(json.dumps(entry, default=str))))
         try:
             data = gql(query, variables, auth=True, write=True)
             entry["result"] = "ok"
-            self.log(entry)
+            self.log(json.loads(redact(json.dumps(entry, default=str))))
             return data
         except SleeperError as e:
             entry["result"] = f"error: {e}"
-            self.log(entry)
+            self.log(json.loads(redact(json.dumps(entry, default=str))))
             raise
 
     def set_leg(self, league_id, roster_id, week, starters, starters_games=None, summary=""):
@@ -180,3 +196,33 @@ class Writer:
         q = 'mutation { roster_update_reserve(league_id:"%s", roster_id:%d, reserve:%s) { roster_id starters players reserve } }' % (
             league_id, int(roster_id), json.dumps(reserve))
         return self._send("set_reserve", q, {}, summary)
+
+    def submit_claim(self, league_id, roster_id, add, drop=None, summary="", bid=None):
+        # Match the web submit: no metadata, no ordering settings, and only a FAAB bid.
+        declarations = ", $ks: [String], $vs: [Int]" if bid is not None else ""
+        settings_args = ", k_settings:$ks, v_settings:$vs" if bid is not None else ""
+        q = ('mutation submit_waiver_claim($league: Snowflake!, $ka: [String], $va: [Int], '
+             '$kd: [String], $vd: [Int]%s) { submit_waiver_claim(league_id:$league, '
+             'k_adds:$ka, v_adds:$va, k_drops:$kd, v_drops:$vd%s) { %s } }') % (
+                 declarations, settings_args, TRANSACTION_FIELDS)
+        v = {"league": str(league_id), "ka": [str(add)], "va": [int(roster_id)],
+             "kd": [str(drop)] if drop else [], "vd": [int(roster_id)] if drop else []}
+        if bid is not None:
+            v.update(ks=["waiver_bid"], vs=[int(bid)])
+        return self._send("submit_claim", q, v, summary)
+
+    def update_claim(self, league_id, leg, transaction_id, priority, summary="", settings=None):
+        # Preserve writable settings like the web reorder, but seq belongs to the server.
+        settings = {k: v for k, v in (settings or {}).items() if k != "seq"}
+        settings["priority"] = int(priority)
+        q = ('mutation update_waiver_claim($league: Snowflake!, $leg: Int!, $id: Snowflake!, '
+             '$ks: [String], $vs: [Int]) { update_waiver_claim(league_id:$league, leg:$leg, '
+             'transaction_id:$id, k_settings:$ks, v_settings:$vs) { %s } }') % TRANSACTION_FIELDS
+        return self._send("update_claim", q, {"league": str(league_id), "leg": int(leg),
+                          "id": str(transaction_id), "ks": list(settings), "vs": list(settings.values())}, summary)
+
+    def cancel_claim(self, league_id, leg, transaction_id, summary=""):
+        q = ('mutation cancel_waiver_claim($league: Snowflake!, $leg: Int!, $id: Snowflake!) { '
+             'cancel_waiver_claim(league_id:$league, leg:$leg, transaction_id:$id) { %s } }') % TRANSACTION_FIELDS
+        return self._send("cancel_claim", q, {"league": str(league_id), "leg": int(leg),
+                          "id": str(transaction_id)}, summary)

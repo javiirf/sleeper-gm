@@ -22,7 +22,7 @@ import time
 import uuid
 from datetime import datetime
 
-from . import api, config, crowd, moves, notify, week
+from . import api, claims, config, crowd, moves, notify, week
 from .policy import HANDOFF_P, RISK, decide, fits, lineup_today, respecify_locks
 
 URGENT_MS = 40 * 60 * 1000
@@ -57,7 +57,7 @@ class Ctx:
         self.writer = api.Writer(live, lambda e: self.append("writes", e))
 
     def log_file(self, kind):
-        return self.dir / "logs" / f"{kind}-{datetime.now(week.ET).strftime('%Y-%m-%d')}.jsonl"
+        return self.dir / "logs" / f"{kind}-{datetime.fromtimestamp(time.time(), week.ET).strftime('%Y-%m-%d')}.jsonl"
 
     def append(self, kind, entry):
         entry = {k: v for k, v in entry.items() if k != "query"} if kind == "writes" else entry
@@ -72,28 +72,33 @@ class Ctx:
         # only transactions Sleeper accepted count against the cap; a refused add costs nothing
         return sum(1 for r in rows if r.get("live") and r.get("kind") == "free_agent" and str(r.get("result", "")).startswith("ok"))
 
-    WAIVER_SKIP_MS = 6 * 3600 * 1000
+    def claim_writes_today(self):
+        """Count live attempts, including refusals/timeouts, once per write id."""
+        try:
+            rows = [json.loads(line) for line in self.log_file("writes").read_text().splitlines() if line.strip()]
+        except FileNotFoundError:
+            return 0
+        today = datetime.fromtimestamp(time.time(), week.ET).date()
+        return len({r.get("write_id") or f"legacy-{i}" for i, r in enumerate(rows)
+                    if r.get("live") and r.get("kind") in ("submit_claim", "update_claim", "cancel_claim")
+                    and datetime.fromtimestamp(r.get("t", time.time()), week.ET).date() == today})
 
     def on_waivers(self):
-        """Players Sleeper refused because they were on waivers (the manager never claims). Each skip
-        lasts 6 hours, so runs after the overnight waiver processing try them again."""
+        """Known waiver refusals last until the next estimated processing time."""
         try:
-            d = json.loads((self.dir / "on_waivers.json").read_text())
+            data = json.loads((self.dir / "on_waivers.json").read_text())
         except (FileNotFoundError, ValueError):
             return set()
         now = time.time() * 1000
-        return {p for p, t in d.items() if isinstance(t, (int, float)) and now - t < self.WAIVER_SKIP_MS}
+        return {p for p, value in data.items() if isinstance(value, dict) and value.get("expires", 0) > now}
 
     def mark_on_waivers(self, pid):
-        f = self.dir / "on_waivers.json"
-        try:
-            d = json.loads(f.read_text())
-        except (FileNotFoundError, ValueError):
-            d = {}
-        now = time.time() * 1000
-        d = {p: t for p, t in d.items() if isinstance(t, (int, float)) and now - t < self.WAIVER_SKIP_MS}
-        d[pid] = now
-        f.write_text(json.dumps(d))
+        path = self.dir / "on_waivers.json"
+        expires = claims.processing_bounds(int(time.time() * 1000), claims.read_state(self.dir))[1]
+        data = {p: {"expires": expires} for p in self.on_waivers()}
+        data[pid] = {"expires": expires}
+        path.write_text(json.dumps(data))
+        claims.fa_result(self.dir, waiver_failure=True)
 
     @contextlib.contextmanager
     def exclusive(self):
@@ -214,8 +219,9 @@ def _ir(ctx, wk, me, unfreeze_only=False):
                 budget -= 1
                 ctx.writer.free_agent(ctx.league_id, ctx.rid, drop=m.drop, summary=m.why)
             parked = [p for p in m.reserve if p not in (roster.get("reserve") or [])]
+            frozen_ir = any(not moves.ir_eligible(wk.league, (wk.players.get(p) or {}).get("injury_status"))
+                            for p in roster.get("reserve") or [])
             if any(p in me.starters for p in parked):
-                # only reached when nobody healthy is on IR (ir_fix fixes that first), so the lineup is not frozen
                 if not _refresh_write_guards(ctx, wk):
                     return wk, me
                 now_ms = int(time.time() * 1000)
@@ -223,8 +229,10 @@ def _ir(ctx, wk, me, unfreeze_only=False):
                        for p in parked if p in me.starters for g in wk.player_games(p)):
                     ctx.acted.append("Skipped bench before IR: the player's team is playing or tips within 60 seconds")
                     return wk, me
-                ctx.writer.set_leg(ctx.league_id, ctx.rid, wk.week, ["0" if p in parked else p for p in me.starters],
-                                   summary="bench before IR")
+                # The reserve swap unfreezes healthy IR first. Benching first can be refused.
+                if not frozen_ir:
+                    ctx.writer.set_leg(ctx.league_id, ctx.rid, wk.week, ["0" if p in parked else p for p in me.starters],
+                                       summary="bench before IR")
             ctx.writer.set_reserve(ctx.league_id, ctx.rid, m.reserve, summary=m.why)
             ctx.acted.append(m.why)
         except api.SleeperError as e:
@@ -234,13 +242,29 @@ def _ir(ctx, wk, me, unfreeze_only=False):
 
 
 def _moves(ctx, wk, me, opp):
-    if getattr(ctx, "week_rolled_over", False) or not ctx.cfg.get("moves", True):
+    if getattr(ctx, "week_rolled_over", False):
+        return wk, me, opp
+    if getattr(ctx, "claims_available", False):
+        try:
+            claims.observe(ctx, wk)
+        except api.SleeperError as e:
+            ctx.claims_available = False
+            ctx.acted.append(f"Could not refresh claims ({e}); leaving claims unchanged")
+    if not ctx.cfg.get("moves", True):
         return wk, me, opp
     budget = ctx.cfg["max_transactions_per_day"] - ctx.transactions_today()
     attempts = 0
-    while budget > 0 and attempts < 4:
+    while budget > 0 and attempts < 4 and not claims.fa_disabled(ctx.dir):
         attempts += 1
-        m = moves.best_move(wk, me, opp, wk.rosters[ctx.rid], exclude=ctx.on_waivers())
+        pending_rows = getattr(ctx, "pending_claims", [])
+        pending_adds = {p for r in pending_rows for p in claims.owned_players(r, "adds", ctx.rid)}
+        # Do not invalidate an existing owner or bot claim by dropping its required player.
+        protected = wk.protected
+        wk.protected = protected | {p for r in pending_rows for p in claims.owned_players(r, "drops", ctx.rid)}
+        try:
+            m = moves.best_move(wk, me, opp, wk.rosters[ctx.rid], exclude=ctx.on_waivers() | pending_adds)
+        finally:
+            wk.protected = protected
         if m is None:
             break
         if not ctx.live:
@@ -255,17 +279,20 @@ def _moves(ctx, wk, me, opp):
         players = set(wk.rosters[ctx.rid].get("players") or [])
         if m.add in players and (not m.drop or m.drop not in players):
             budget -= 1
+            claims.fa_result(ctx.dir, success=True)
             if err:  # it went through despite the error: count it like an accepted write
                 ctx.append("writes", {"t": time.time(), "kind": "free_agent", "live": True, "result": "ok (confirmed after error)",
                                       "summary": m.why})
             ctx.acted.append(("Added " if m.kind == "add" else "Swap: ") + m.why
                              + (" (Sleeper errored but the move went through)" if err else ""))
         elif err and "waiver" in str(err).lower():
-            ctx.mark_on_waivers(m.add)  # never claim; skip him today and try the next best free agent
-            ctx.append("errors", {"t": time.time(), "note": f"{wk.name(m.add)} is on waivers; trying the next option"})
+            ctx.mark_on_waivers(m.add)
+            ctx.append("errors", {"t": time.time(), "note": f"{wk.name(m.add)} is on waivers; considering a claim"})
         else:
             ctx.acted.append(f"Could not add {wk.name(m.add)}: {err or 'not on the roster after the write'}")
             break
+    if getattr(ctx, "claims_available", False) and not getattr(ctx, "week_rolled_over", False):
+        claims.reconcile(ctx, wk, me, opp)
     return wk, me, opp
 
 
@@ -401,13 +428,14 @@ def _describe_lineup(ctx, wk, old, new, would=False):
 
 
 def _claims_check(ctx, wk, me):
-    """Waiver claims the owner queued by hand: warn when one would drop a starter or core player
-    (the manager itself never submits claims)."""
+    """Read pending claims once; warn about risky drops and keep them out of locks."""
+    ctx.claims_available = False
     try:
-        q = ('{ league_transactions(league_id:"%s", leg:%d, status:"pending", roster_id:%d){ type drops } }'
-             % (ctx.league_id, wk.week, ctx.rid))
-        rows = api.gql(q, auth=True)["league_transactions"] or []
+        rows = claims.pending(ctx)
+        ctx.pending_claims = rows
+        ctx.claims_available = True
     except (api.SleeperError, KeyError, TypeError):
+        ctx.pending_claims = []
         return set()
     drops = set()
     for r in rows:
@@ -554,6 +582,7 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
         "opp": {"name": team_name(wk.opp_rid), "record": _record(wk.rosters[wk.opp_rid]), "points": points(opp),
                 "proj": round(dec.opp_mean, 1) if dec else None, "slots": slots(opp, False)},
         "acted": ctx.acted,
+        "claims": claims.view(ctx, wk),
     }
     pending = {p for p, _x, _g in me.pending.values()}
     rows = [r for r in snap["me"]["slots"] if r["state"] == "pending" and r["player"]["id"] in pending]
@@ -584,6 +613,7 @@ def preview(ctx, with_moves=True):
     starters = list(me.starters)
     if dec:
         starters, _ = respecify_locks(me, lineup_today(me, dec, wk.has_game_today), dec.locks)
+    _claims_check(ctx, wk, me)
     snap = snapshot(ctx, wk, me, opp, dec, starters, {}, write=False)
     snap["would"] = {
         "lock": [wk.name(me.pending[s][0]) for s in (dec.locks if dec else [])],
@@ -625,7 +655,11 @@ def _run(ctx, brief):
     wk, me, opp = _moves(ctx, wk, me, opp)
     if ctx.live and any(a.startswith(("Added", "Swap")) for a in ctx.acted):
         wk, me, opp = load(ctx)
+    if getattr(ctx, "claims_available", False):
+        pending_drops = {p for r in ctx.pending_claims for p in claims.owned_players(r, "drops", ctx.rid)}
     dec, starters, done = _locks(ctx, wk, me, opp, pending_drops)
+    # Keep the actually observed roster, not the proposed lineup, for the cheap gate.
+    ctx.roster_for_gate = wk.rosters[ctx.rid] if hasattr(wk, "rosters") else None
     snap = snapshot(ctx, wk, me, opp, dec, starters, done)
     entry = {"t": time.time(), "secs": round(time.time() - t0, 1), "live": ctx.live, "week": wk.week,
              "p_win": snap["p_win"], "mean": snap["me"]["proj"], "opp_mean": snap["opp"]["proj"],
