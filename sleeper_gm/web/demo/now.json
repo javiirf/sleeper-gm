@@ -55,7 +55,9 @@
      "lock": 6,
      "pass": 2,
      "lock_share": 0.75,
-     "news": ["Fictional demo: fans mention a possible minutes limit next game."]
+     "news": [
+      "Fictional demo: fans mention a possible minutes limit next game."
+     ]
     },
     "slot_value": 44.5,
     "player": {
@@ -76,6 +78,11 @@
       "opp": "DAL",
       "home": true
      }
+    },
+    "plan": {
+     "looks": [],
+     "expected_value": 44.5,
+     "locking": true
     }
    },
    {
@@ -104,6 +111,29 @@
       "opp": "PHX",
       "home": false
      }
+    },
+    "plan": {
+     "expected_value": 28.6,
+     "looks": [
+      {
+       "id": "4881",
+       "name": "Jamal Murray",
+       "date": "2026-12-04",
+       "tip_ms": 1796436000000,
+       "lock_above": 24.8,
+       "terminal": false,
+       "handoff_p": 1.0
+      },
+      {
+       "id": "4881",
+       "name": "Jamal Murray",
+       "date": "2026-12-06",
+       "tip_ms": 1796608800000,
+       "lock_above": 0,
+       "terminal": true,
+       "handoff_p": 1.0
+      }
+     ]
     }
    },
    {
@@ -129,6 +159,29 @@
       "opp": "SAC",
       "home": true
      }
+    },
+    "plan": {
+     "expected_value": 26.0,
+     "looks": [
+      {
+       "id": "2549",
+       "name": "Kawhi Leonard",
+       "date": "2026-12-03",
+       "tip_ms": 1796349600000,
+       "lock_above": 22.9,
+       "terminal": false,
+       "handoff_p": 1.0
+      },
+      {
+       "id": "2549",
+       "name": "Kawhi Leonard",
+       "date": "2026-12-05",
+       "tip_ms": 1796527800000,
+       "lock_above": 0,
+       "terminal": true,
+       "handoff_p": 1.0
+      }
+     ]
     }
    },
    {
@@ -207,6 +260,29 @@
       "opp": "POR",
       "home": false
      }
+    },
+    "plan": {
+     "expected_value": 25.9,
+     "looks": [
+      {
+       "id": "3159",
+       "name": "Domantas Sabonis",
+       "date": "2026-12-03",
+       "tip_ms": 1796355000000,
+       "lock_above": 25.4,
+       "terminal": false,
+       "handoff_p": 1.0
+      },
+      {
+       "id": "3159",
+       "name": "Domantas Sabonis",
+       "date": "2026-12-06",
+       "tip_ms": 1796608800000,
+       "lock_above": 0,
+       "terminal": true,
+       "handoff_p": 1.0
+      }
+     ]
     }
    },
    {
@@ -232,13 +308,77 @@
       "opp": "CHA",
       "home": false
      }
+    },
+    "plan": {
+     "expected_value": 24.3,
+     "looks": [
+      {
+       "id": "6130",
+       "name": "Desmond Bane",
+       "date": "2026-12-04",
+       "tip_ms": 1796428800000,
+       "lock_above": 22.1,
+       "terminal": false,
+       "handoff_p": 0.9
+      },
+      {
+       "id": "5880",
+       "name": "Keldon Johnson",
+       "date": "2026-12-04",
+       "tip_ms": 1796439600000,
+       "lock_above": 20.6,
+       "terminal": false,
+       "handoff_p": 1.0
+      },
+      {
+       "id": "6130",
+       "name": "Desmond Bane",
+       "date": "2026-12-06",
+       "tip_ms": 1796601600000,
+       "lock_above": 0,
+       "terminal": true,
+       "handoff_p": 1.0
+      }
+     ]
     }
    },
    {
     "slot": "UTIL",
     "state": "empty",
     "player": null,
-    "slot_value": 18.0
+    "slot_value": 24.1,
+    "plan": {
+     "expected_value": 24.1,
+     "looks": [
+      {
+       "id": "8130",
+       "name": "Jalen Duren",
+       "date": "2026-12-04",
+       "tip_ms": 1796430600000,
+       "lock_above": 22.0,
+       "terminal": false,
+       "handoff_p": 1.0
+      },
+      {
+       "id": "6846",
+       "name": "Naz Reid",
+       "date": "2026-12-05",
+       "tip_ms": 1796518800000,
+       "lock_above": 20.7,
+       "terminal": false,
+       "handoff_p": 1.0
+      },
+      {
+       "id": "8130",
+       "name": "Jalen Duren",
+       "date": "2026-12-06",
+       "tip_ms": 1796601600000,
+       "lock_above": 0,
+       "terminal": true,
+       "handoff_p": 1.0
+      }
+     ]
+    }
    }
   ],
   "bench": [
@@ -260,7 +400,8 @@
      "tip_ms": 1796518800000,
      "opp": "DAL",
      "home": true
-    }
+    },
+    "role": "plays UTIL Sat (if open)"
    },
    {
     "id": "8130",
@@ -279,7 +420,8 @@
      "tip_ms": 1796430600000,
      "opp": "ATL",
      "home": false
-    }
+    },
+    "role": "plays UTIL Fri, Sun (if open)"
    },
    {
     "id": "6150",
@@ -299,7 +441,8 @@
      "tip_ms": 1796432400000,
      "opp": "BKN",
      "home": true
-    }
+    },
+    "role": "reserve for G (not in current plan)"
    },
    {
     "id": "5880",
@@ -316,10 +459,11 @@
     "proj": 15.9,
     "next": {
      "date": "2026-12-04",
-     "tip_ms": 1796434200000,
+     "tip_ms": 1796439600000,
      "opp": "MEM",
      "home": true
-    }
+    },
+    "role": "plays UTIL Fri (if open)"
    }
   ],
   "ir": [

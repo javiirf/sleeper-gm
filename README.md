@@ -55,6 +55,28 @@ gap is usually large.
    swaps need a 3-point edge. Pickups must be in a real rotation right now. Your best players, anyone
    locked, mid-game or holding a lockable game are never dropped. Trades are never sent.
 
+Slots are solved over distinct **tip events**, so an early game and a late game can both be looks
+on the same day. The model reserves **150 minutes** for a game (15 beyond a typical 2h15),
+**10 minutes** for the box feed, then waits for the first scheduled **:10/:40** run, with at least
+**10 minutes** before the next tip. A 7pm look can therefore hand off at 9:40pm to a 10pm look;
+an 8pm look cannot follow it. These are `GAME_SPAN`, `BOX_DELAY` and `LEAD` in `policy.py`.
+
+Timing is uncertain: the model gives each potential same-day handoff a **90%** normal branch
+and a **10%** delayed branch that misses the remaining looks that day. This is a conservative
+assumption, not a measured completion rate; delay and scoring are modeled independently. The
+DP, risk-plan realization and Monte Carlo follow the same branches, with separate continuation
+bars after a timely or delayed final. Runtime still requires a completed game and its box feed;
+an unresolved game waits for another run. A terminal draw is forced, including a zero for a DNP.
+The opponent retains one look per day.
+
+`status`, the daily brief and the Board show each open slot's ordered plan and lock bars.
+Later looks require passing the earlier scores and keeping the slot open. `now.json` adds
+`plan: {looks, expected_value}` to open slot rows and `role` to bench players, preserving existing
+fields. Each look has `id`, `name`, Eastern `date`, `tip_ms`, `lock_above`, `terminal` and
+`handoff_p`. The bar is the normal branch's continuation value, not a promise to lock regardless
+of matchup context; `terminal: true` means the final draw counts even below the bar. Bench roles
+identify planned games or reserves without promising an injury substitution the policy did not model.
+
 ## Safety rails
 
 - Writes are **off** until you run `sleeper-gm on`, and a run only writes when it is also asked to.

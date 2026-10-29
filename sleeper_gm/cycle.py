@@ -23,7 +23,7 @@ import uuid
 from datetime import datetime
 
 from . import api, config, crowd, moves, notify, week
-from .policy import RISK, decide, lineup_today, respecify_locks
+from .policy import HANDOFF_P, RISK, decide, fits, lineup_today, respecify_locks
 
 URGENT_MS = 40 * 60 * 1000
 MOVE_GUARD_MS = 60 * 1000     # do not move anyone whose game tips within a minute
@@ -422,8 +422,54 @@ def _claims_check(ctx, wk, me):
     return drops
 
 
+def plan_details(wk, team, dec, starters=None):
+    """Serializable nominal looks. Same-day branches are conditional on a timely final.
+
+    Plans belong to slots, not occupants. When a new lock moves to a more specific
+    slot, that slot's plan follows its displaced occupant into the broader slot.
+    """
+    if not dec:
+        return {}
+    plan, out = dec.plan, {}
+    for s in plan.choice:
+        looks = []
+        for i, p, d, tip in plan.looks(s):
+            normal, delayed = plan.after[s][i]
+            c, terminal = plan.C[s][normal]
+            looks.append({"id": p, "name": wk.name(p), "date": wk.days[d], "tip_ms": tip,
+                          "lock_above": round(c, 1), "terminal": terminal,
+                          "handoff_p": HANDOFF_P if normal != delayed else 1.0})
+        out[s] = {"looks": looks, "expected_value": round(plan.C[s][0][0], 1)}
+    if starters is not None:
+        for s in dec.locks:
+            p = team.starters[s]
+            if p in starters and starters.index(p) != s:
+                target = starters.index(p)
+                if target in out:
+                    out[s] = out.pop(target)
+    return out
+
+
+def bench_role(wk, team, plans, p):
+    uses = []
+    for s, plan in plans.items():
+        days = list(dict.fromkeys(datetime.fromisoformat(x["date"]).strftime("%a")
+                                  for x in plan["looks"] if x["id"] == p))
+        if days:
+            uses.append(f"{team.slots[s]} {', '.join(days)}")
+    if uses:
+        return "plays " + "; ".join(uses) + " (if open)"
+    available = list(dict.fromkeys(team.slots[s] for s in plans if fits(team.slots[s], team.positions.get(p, []))))
+    if not available:
+        return "no open slot this week"
+    if not team.games.get(p):
+        return "no games left this week"
+    return "reserve for " + "/".join(available) + " (not in current plan)"
+
+
 def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
     """Everything the web app shows about right now (written to now.json)."""
+    plans = plan_details(wk, me, dec, starters)
     users = {}
     try:
         users = {u["user_id"]: u for u in api.rest(f"/v1/league/{ctx.league_id}/users")}
@@ -468,8 +514,6 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
                 if mine and dec:
                     row.update(open_value=round(dec.cont.get(s, 0), 1), decision="lock" if s in dec.locks else "pass")
                 by[p] = row
-            if mine and dec and s in dec.plan.C:
-                by.setdefault(p, {})["slot_value"] = round(dec.plan.C[s][0][0], 1)
         out = []
         for s, slot in enumerate(team.slots):
             p = starters[s] if mine else team.starters[s]
@@ -479,6 +523,12 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
                 info.update(state="locked", just_locked=True)
             info.setdefault("state", "open" if p != "0" else "empty")
             row.update(info)
+            if mine and row["state"] != "locked":
+                if s in plans:
+                    row["plan"] = plans[s]
+                    row["slot_value"] = plans[s]["expected_value"]
+                elif row.get("decision") == "lock":
+                    row["plan"] = {"looks": [], "expected_value": row["score"], "locking": True}
             out.append(row)
         return out
 
@@ -499,7 +549,8 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
         "days_left": wk.days, "p_win": dec.p_win if dec else None,
         "me": {"name": team_name(ctx.rid), "record": _record(wk.rosters[ctx.rid]), "points": points(me),
                "proj": round(dec.mean_total, 1) if dec else None, "slots": slots(me, True),
-               "bench": [pinfo(p, me) for p in bench], "ir": [pinfo(p, me) for p in roster.get("reserve") or []]},
+               "bench": [{**pinfo(p, me), "role": bench_role(wk, me, plans, p)} for p in bench],
+               "ir": [pinfo(p, me) for p in roster.get("reserve") or []]},
         "opp": {"name": team_name(wk.opp_rid), "record": _record(wk.rosters[wk.opp_rid]), "points": points(opp),
                 "proj": round(dec.opp_mean, 1) if dec else None, "slots": slots(opp, False)},
         "acted": ctx.acted,
@@ -605,7 +656,7 @@ def _run(ctx, brief):
                 p = r["player"]["name"] if r["player"] else "(empty)"
                 tag = {"locked": f"locked {r.get('score')}", "playing": "playing now",
                        "pending": f"{r.get('score')} vs open {r.get('open_value')}: {r.get('decision')}"}.get(r["state"], "")
-                lines.append(f"{r['slot']:<4} {p} {tag}".rstrip())
+                lines.append(notify.plan_line(r) or f"{r['slot']:<4} {p} {tag}".rstrip())
                 if r["state"] == "pending":
                     chat = notify.crowd_line(r.get("crowd"))
                     if chat:

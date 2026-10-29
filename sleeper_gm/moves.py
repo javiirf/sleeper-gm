@@ -161,7 +161,7 @@ def with_player(wk, team, add, drop=None):
         if g.start_ms > wk.now_ms and g.date in wk.days:
             gd = wk.model.dist(add, {"game_id": g.game_id, "date": g.date, "start_ms": g.start_ms,
                                      "team": wk.team_of(add), "opp": g.team_opp(wk.team_of(add))})
-            draws[wk.days.index(g.date)] = Draw(float(gd.p_play), np.asarray(gd.samples, dtype=float))
+            draws[wk.days.index(g.date)] = Draw(float(gd.p_play), np.asarray(gd.samples, dtype=float), g.start_ms)
     t.games[add] = draws
     return t
 

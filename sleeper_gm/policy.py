@@ -1,7 +1,8 @@
 """Lock-In decisions: which finished games to lock, who sits in each open slot today.
 
-The week is a stopping problem per open starting slot. Each game day a slot can
-hold one player whose game that day is a draw; after it, lock (keep that score
+The week is a stopping problem per open starting slot. Each tip is an event;
+a look holds the slot until a scheduled run after the final and box delay.
+After it, lock (keep that score
 for the week) or pass (lose it, keep the slot open). The occupant's final game
 of the week counts if nothing was locked, so the last draw is forced.
 
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import copy
 import zlib
+from bisect import bisect_left
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -28,6 +30,17 @@ ELIG = {"PG": {"PG"}, "SG": {"SG"}, "G": {"PG", "SG"}, "SF": {"SF"}, "PF": {"PF"
 SPECIFICITY = {"PG": 0, "SG": 0, "SF": 0, "PF": 0, "C": 0, "G": 1, "F": 1, "UTIL": 2}
 TILTS = (-6.0, -3.0, 0.0, 3.0, 6.0)
 RISK = (-0.5, 0.0, 0.75, 1.5)   # lineup variants valued at mean + r * standard deviation
+MINUTE = 60_000
+GAME_SPAN = 150 * MINUTE  # 2h30, allowing 15 minutes beyond a typical 2h15 game
+BOX_DELAY = 10 * MINUTE  # final box feed/cache delay
+LEAD = 10 * MINUTE       # finish a run before the incoming player's tip
+HANDOFF_P = 0.90         # assumption, not fitted: 10% miss the rest of that day's looks
+
+
+def next_run(ms):
+    """First scheduled :10/:40 run at or after ms (also valid across ET DST)."""
+    cadence, offset = 30 * MINUTE, 10 * MINUTE
+    return ((ms - offset + cadence - 1) // cadence) * cadence + offset
 
 
 def fits(slot, positions):
@@ -40,6 +53,7 @@ class Draw:
     """One future game: chance he plays, and fantasy-point samples if he does."""
     p_play: float
     samples: np.ndarray
+    tip_ms: int | None = None  # absent in historical/day-only callers
 
     @property
     def mean(self):
@@ -68,6 +82,7 @@ class Team:
     games: dict = field(default_factory=dict)      # pid -> {day index: Draw} for games not yet over (incl. in flight)
     frozen: set = field(default_factory=set)       # pids that cannot be moved now
     final_done: set = field(default_factory=set)   # pids whose last game of the week is already over
+    now_ms: int | None = None
 
     def open_slots(self, extra_locks=()):
         return [i for i in range(len(self.slots)) if i not in self.locked and i not in extra_locks]
@@ -76,33 +91,78 @@ class Team:
 @dataclass
 class Plan:
     bind: dict      # open slot -> [pids bound to it for the week]
-    C: dict         # open slot -> [(value, terminal)] for days 0..D (C[s][d] = entering day d)
-    choice: dict    # open slot -> [pid or None] per day: who plays in it that day
+    C: dict         # open slot -> [(value, terminal)] entering each event, plus end
+    choice: dict    # open slot -> [pid or None] at each tip event
     base: dict      # open slot -> score it keeps if nobody new plays there
     value: float    # expected points still to come from the open slots
+    events: dict = field(default_factory=dict)  # slot -> [(tip_ms or None, day)]
+    after: dict = field(default_factory=dict)   # slot -> [(normal next index, delayed next index)]
+
+    def looks(self, s):
+        """Ordered normal-timing path; later looks require passing earlier ones."""
+        i = 0
+        while i < len(self.choice[s]):
+            p = self.choice[s][i]
+            if p is None:
+                i += 1
+                continue
+            tip, day = self.events[s][i]
+            yield i, p, day, tip
+            i = self.after[s][i][0]
 
 
-def slot_dp(team, members, D, base, fixed0=None, skip0=False):
+def slot_events(team, members, D, daily=False):
+    """A shared event grid and handoff transitions for DP, realization and MC."""
+    games = [(d, dr.tip_ms) for p in members for d, dr in team.games.get(p, {}).items() if d < D]
+    if daily or any(t is None for _d, t in games) or not games:
+        return [(None, d) for d in range(D)], [(d + 1, d + 1) for d in range(D)]
+    events = sorted({(t, d) for d, t in games})
+    tips = [t for t, _d in events]
+    after = []
+    for i, (t, d) in enumerate(events):
+        ready = next_run(t + GAME_SPAN + BOX_DELAY)
+        if team.now_ms is not None and t <= team.now_ms:
+            # A held game is still unresolved at this run, even if its modeled
+            # deadline passed. It cannot free a slot before a subsequent run.
+            ready = max(ready, next_run(team.now_ms + 1))
+        normal = bisect_left(tips, ready + LEAD)
+        tomorrow = next((j for j in range(i + 1, len(events)) if events[j][1] > d), len(events))
+        after.append((normal, max(normal, tomorrow)))
+    return events, after
+
+
+def look_value(dr, C, transition):
+    normal, delayed = transition
+    return HANDOFF_P * dr.value(C[normal]) + (1 - HANDOFF_P) * dr.value(C[delayed])
+
+
+def slot_dp(team, members, D, base, fixed0=None, skip0=False, *, events=None, after=None):
     """Backward stopping problem for one slot over its members' games."""
-    C = [None] * (D + 1)
-    ch = [None] * D
+    if events is None:
+        events, after = slot_events(team, members, D)
+    N = len(events)
+    C = [None] * (N + 1)
+    ch = [None] * N
     nxt = (base, True)
-    C[D] = nxt
-    for d in range(D - 1, -1, -1):
+    C[N] = nxt
+    for i in range(N - 1, -1, -1):
+        tip, d = events[i]
         best, pick = nxt, None
-        if d == 0 and fixed0 is not None:
-            best, pick = (team.games[fixed0][0].value(nxt), False), fixed0
+        if d == 0 and fixed0 is not None and (tip is None or team.games[fixed0][0].tip_ms == tip):
+            best, pick = (look_value(team.games[fixed0][0], C, after[i]), False), fixed0
         elif not (d == 0 and skip0):
             for p in members:
                 dr = team.games.get(p, {}).get(d)
-                if dr is None or dr.p_play <= 0 or (d == 0 and p in team.frozen):
+                if dr is None or (tip is not None and dr.tip_ms != tip) or (d == 0 and p in team.frozen):
                     continue
-                v = dr.value(nxt)
+                v = look_value(dr, C, after[i])
                 # with games still to come a draw is never worse than skipping, so a tie plays him
                 # (the option is free); before a forced last draw, only a strictly better one
-                if v > best[0] + 1e-9 or (not nxt[1] and v >= best[0] - 1e-9 and (pick is None or v > best[0] + 1e-9)):
+                zero_final = nxt[1] and dr.p_play == 0 and v == best[0] == 0 and pick is None
+                if (v > best[0] + 1e-9 or zero_final
+                        or (not nxt[1] and v >= best[0] - 1e-9 and (pick is None or v > best[0] + 1e-9))):
                     best, pick = (v, False), p
-        C[d], ch[d] = best, pick
+        C[i], ch[i] = best, pick
         nxt = best
     return C, ch
 
@@ -143,8 +203,10 @@ def make_plan(team, D, locks=(), opponent=False):
         if key not in cache:
             occ = team.starters[s] if s in team.inflight else None
             fixed0 = occ if occ and 0 in team.games.get(occ, {}) else None
-            C, ch = slot_dp(team, members, D, base_of(s, members), fixed0, skip0=occ is not None and fixed0 is None)
-            cache[key] = (C[0][0], C, ch)
+            events, after = slot_events(team, members, D, daily=opponent)
+            C, ch = slot_dp(team, members, D, base_of(s, members), fixed0,
+                            skip0=occ is not None and fixed0 is None, events=events, after=after)
+            cache[key] = (C[0][0], C, ch, events, after)
         return cache[key]
 
     def can(p, s):
@@ -204,13 +266,13 @@ def make_plan(team, D, locks=(), opponent=False):
                 bind[b].remove(q)
                 bind[a].append(q)
                 bind[b].append(p)
-    C, choice, base = {}, {}, {}
+    C, choice, base, events, after = {}, {}, {}, {}, {}
     total = 0.0
     for s in open_:
-        v, Cs, ch = sval(s, bind[s])
+        v, Cs, ch, events[s], after[s] = sval(s, bind[s])
         C[s], choice[s], base[s] = Cs, ch, base_of(s, bind[s])
         total += v
-    return Plan(bind, C, choice, base, total)
+    return Plan(bind, C, choice, base, total, events, after)
 
 
 def _risk_variant(team, r):
@@ -223,7 +285,7 @@ def _risk_variant(team, r):
     def shifted(dr):
         p = dr.p_play
         sd = np.sqrt(max(0.0, p * float(np.square(dr.samples).mean()) - (p * dr.mean) ** 2))
-        return Draw(p, dr.samples + r * sd / max(p, 0.05))
+        return Draw(p, dr.samples + r * sd / max(p, 0.05), dr.tip_ms)
 
     t.games = {p: {d: shifted(dr) for d, dr in g.items()}
                for p, g in team.games.items()}
@@ -231,18 +293,19 @@ def _risk_variant(team, r):
 
 
 def realize(team, plan, D):
-    """Keep a plan's bindings and daily picks but recompute every threshold with the real draws."""
+    """Keep the event policy, recomputing every branch with the real draws."""
     C = {}
     for s, ch in plan.choice.items():
         nxt = (plan.base[s], True)
-        Cs = [None] * (D + 1)
-        Cs[D] = nxt
-        for d in range(D - 1, -1, -1):
-            if ch[d] is not None:
-                nxt = (team.games[ch[d]][d].value(nxt), False)
-            Cs[d] = nxt
+        Cs = [None] * (len(ch) + 1)
+        Cs[-1] = nxt
+        for i in range(len(ch) - 1, -1, -1):
+            if ch[i] is not None:
+                d = plan.events[s][i][1]
+                nxt = (look_value(team.games[ch[i]][d], Cs, plan.after[s][i]), False)
+            Cs[i] = nxt
         C[s] = Cs
-    return Plan(plan.bind, C, plan.choice, plan.base, sum(C[s][0][0] for s in C))
+    return Plan(plan.bind, C, plan.choice, plan.base, sum(C[s][0][0] for s in C), plan.events, plan.after)
 
 
 _CRN = {}
@@ -270,18 +333,23 @@ def simulate(team, plan, locks, n, seed, tilt=0.0):
     for s, ch in plan.choice.items():
         v = np.full(n, plan.base[s])
         done = np.zeros(n, dtype=bool)
-        for d, p in enumerate(ch):
+        cursor = np.zeros(n, dtype=int)
+        for i, p in enumerate(ch):
             if p is None:
                 continue
+            d = plan.events[s][i][1]
             x, played = _draw(p, d, team.games[p][d], n, seed)
-            c, terminal = plan.C[s][d + 1]
-            if terminal:
-                take = ~done
-                v = np.where(take, np.where(played, x, 0.0), v)
-            else:
-                take = ~done & played & (x >= c + tilt)
-                v = np.where(take, x, v)
+            normal, delayed = plan.after[s][i]
+            # Independent of scoring, shared across alternatives for this player/game.
+            rng = np.random.default_rng([seed, zlib.crc32(str(p).encode()), d, 771])
+            nxt = np.where(rng.random(n) < HANDOFF_P, normal, delayed) if normal != delayed else np.full(n, normal)
+            c = np.array([v[0] for v in plan.C[s]])[nxt]
+            terminal = np.array([v[1] for v in plan.C[s]])[nxt]
+            active = ~done & (cursor <= i)
+            take = active & (terminal | (played & (x >= c + tilt)))
+            v = np.where(take, np.where(played, x, 0.0), v)
             done |= take
+            cursor = np.where(active, nxt, cursor)
         total += v
     return total
 
@@ -318,7 +386,12 @@ class Decision:
 
     @property
     def assign_today(self):
-        return {s: ch[0] for s, ch in self.plan.choice.items() if ch and ch[0]}
+        out = {}
+        for s in self.plan.choice:
+            first = next(self.plan.looks(s), None)
+            if first and first[2] == 0:
+                out[s] = first[1]
+        return out
 
 
 def decide(team, opp, D, n=8000, seed=0, flip_margin=0.01, risk=(0.0,), forbidden_locks=()):
@@ -383,7 +456,7 @@ def lineup_today(team, dec, today_has_game):
         p = starters[s]
         ok = p != "0" and p in team.positions and p not in placed and not today_has_game(p)
         if not ok:
-            spare = [q for q in dec.plan.bind.get(s, []) if q not in placed and not today_has_game(q)
+            spare = [q for q in dec.plan.bind.get(s, []) if q not in placed and q not in team.frozen and not today_has_game(q)
                      and fits(team.slots[s], team.positions.get(q, []))]
             p = spare[0] if spare else "0"
         starters[s] = p

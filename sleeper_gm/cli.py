@@ -183,7 +183,7 @@ def cmd_run(args):
 
 
 def cmd_status(args):
-    from .cycle import Ctx, load
+    from .cycle import Ctx, bench_role, load, plan_details
     from .policy import decide
     cfg = config.load()
     st = store()
@@ -210,6 +210,17 @@ def cmd_status(args):
                        + ("LOCK" if s in dec.locks else "pass"))
             print(f"  {slot:<4} {wk.name(p) if p != '0' else '(empty)':<26} {tag}")
         print("  today:", ", ".join(f"{me.slots[s]} {wk.name(p)}" for s, p in dec.assign_today.items()) or "nobody plays")
+        plans = plan_details(wk, me, dec)
+        print("  Plan (ET; later looks require passing; same-day swaps need a final box):")
+        for s, plan in plans.items():
+            print("   ", notify.plan_line({"slot": me.slots[s], "plan": plan}),
+                  f"[expected {plan['expected_value']:.1f}]")
+        bench = [p for p in me.positions if p not in me.starters]
+        if bench:
+            print("  Bench:")
+            for p in bench:
+                count = len(me.games.get(p, {}))
+                print(f"    {wk.name(p)}: {bench_role(wk, me, plans, p)}; {count} {'game' if count == 1 else 'games'} left")
 
 
 def main(argv=None):

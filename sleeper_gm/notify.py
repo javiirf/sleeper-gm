@@ -6,6 +6,28 @@ import json
 import os
 import subprocess
 import urllib.request
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+
+def plan_line(row):
+    """One brief line, also used by status; all times are league-day Eastern."""
+    plan = row.get("plan")
+    if plan is None:
+        return ""
+    parts = []
+    for look in plan["looks"]:
+        name = look["name"].split()[-1]
+        if look.get("tip_ms") is not None:
+            dt = datetime.fromtimestamp(look["tip_ms"] / 1000, ZoneInfo("America/New_York"))
+            hour = str(dt.hour % 12 or 12) + (f":{dt.minute:02}" if dt.minute else "")
+            when = dt.strftime("%a ") + hour + ("pm" if dt.hour >= 12 else "am")
+        else:
+            when = datetime.fromisoformat(look["date"]).strftime("%a")
+        bar = "final" if look["terminal"] else f"lock at {look['lock_above']:.1f}+"
+        parts.append(f"{name} {when} ({bar})")
+    fallback = "lock this score" if plan.get("locking") else "hold; no further looks"
+    return f"{row['slot']}: " + (", then ".join(parts) if parts else fallback)
 
 
 def crowd_line(signal):

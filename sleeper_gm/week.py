@@ -230,7 +230,7 @@ def build_team(wk, rid, snaps=None):
     reserve = set(roster.get("reserve") or [])
     active = [p for p in roster.get("players") or [] if p not in reserve]
     positions = {p: (wk.players.get(p) or {}).get("fantasy_positions") or [] for p in active}
-    t = Team(list(wk.slots), starters, positions)
+    t = Team(list(wk.slots), starters, positions, now_ms=wk.now_ms)
     t.lock_games, t.uncertain = {}, set()
     refused = unlockable(wk) if snaps is not None else {}
     for p in active:
@@ -240,7 +240,7 @@ def build_team(wk, rid, snaps=None):
                 continue
             gd = wk.model.dist(p, {"game_id": g.game_id, "date": g.date, "start_ms": g.start_ms,
                                    "team": wk.team_of(p), "opp": g.team_opp(wk.team_of(p))})
-            draws[wk.days.index(g.date)] = Draw(float(gd.p_play), np.asarray(gd.samples, dtype=float))
+            draws[wk.days.index(g.date)] = Draw(float(gd.p_play), np.asarray(gd.samples, dtype=float), g.start_ms)
             if wk.in_flight(g):
                 t.frozen.add(p)
         t.games[p] = draws

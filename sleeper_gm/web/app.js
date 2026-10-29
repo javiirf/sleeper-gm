@@ -452,6 +452,26 @@
     return 'Sleeper chat: ' + pct(c.lock_share) + ' lock (' + plural((num(c.lock) || 0) + (num(c.pass) || 0), 'vote') + ')';
   }
 
+  function planHtml(plan) {
+    if (!plan || plan.locking) return '';
+    var looks = arr(plan.looks);
+    var time = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    var h = '<span class="slot-plan"><span class="plan-label">Next looks <span>' + esc(f1(plan.expected_value)) + ' expected</span></span>';
+    if (!looks.length) return h + '<span class="plan-empty">No further looks; hold this slot.</span></span>';
+    h += '<span class="looks">';
+    looks.forEach(function (look, i) {
+      var name = String(look.name || 'Unknown player').split(' ').slice(-1)[0];
+      var when = num(look.tip_ms) != null ? time.format(new Date(look.tip_ms)).replace(':00', '').replace(', ', ' ').toLowerCase()
+        : String(look.date || '');
+      when = when.charAt(0).toUpperCase() + when.slice(1);
+      if (i) h += '<span class="look-arrow" aria-label="then">→</span>';
+      h += '<span class="look"><b>' + esc(name) + '</b> <span class="look-time">' + esc(when) + '</span>' +
+        '<span class="lock-bar">' + (look.terminal ? 'final game' : 'lock at ' + esc(f1(look.lock_above)) + '+') + '</span></span>';
+    });
+    return h + '</span><span class="plan-note">If you pass · ET' +
+      (looks.some(function (x) { return num(x.handoff_p) != null && x.handoff_p < 1; }) ? ' · same-day swap needs a final box' : '') + '</span></span>';
+  }
+
   function slotRow(s, i, scale, ctx) {
     s = obj(s);
     var p = s.player && typeof s.player === 'object' ? s.player : null;
@@ -518,6 +538,7 @@
       (reason ? '<span class="reason' + (st === 'empty' || st === 'open' ? ' quiet' : '') + '">' + reason + '</span>' : '');
     var chat = st === 'pending' ? crowdLine(s.crowd) : '';
     if (chat) inner += '<span class="reason quiet crowd">' + esc(chat) + '</span>';
+    if (st !== 'locked') inner += planHtml(s.plan);
     if (st === 'pending') arr(obj(s.crowd).news).forEach(function (text) { extra.push(['Sleeper chat (crowd)', text, true]); });
     var detail = p ? playerFacts(p, extra, st === 'pending') : facts(extra);
     return rowWrap(key, 'slot s-' + st, inner, detail);
@@ -533,6 +554,8 @@
     var inner = '<span class="who-line"><span class="pname">' + esc(p.name || 'Unknown player') + '</span>' +
       (p.team ? '<span class="team">' + esc(p.team) + '</span>' : '') + tag(p) + '</span>' +
       '<span class="right">' + right + '</span>';
+    if (kind === 'bench' && p.role) inner += '<span class="bench-role">' + esc(p.role) +
+      (num(p.games_left) != null ? '<span> · ' + esc(plural(p.games_left, 'game') + ' left') + '</span>' : '') + '</span>';
     return rowWrap(key, 'prow', inner, playerFacts(p));
   }
 
