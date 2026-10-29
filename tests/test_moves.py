@@ -59,11 +59,18 @@ def test_full_roster_swaps_a_bench_injury_in_or_drops(bench_status, expect):
     assert (m.reserve == ["b"]) if expect == "reserve" else (m.drop == "b" and m.reserve == [])
 
 
-def test_an_injured_starter_is_never_used_to_unfreeze_ir():
-    # the only Out player is a STARTER: benching him needs a lineup save, which the freeze can block
-    wk = WK({"a": "Out", "c": None, "b": None, "back": None}, {"a": 30, "b": 9, "c": 12, "back": 22})
-    m = moves.ir_fix(wk, team(["a", "c"]), {"players": ["a", "b", "c", "back"], "reserve": ["back"]})
-    assert m.kind == "drop_then_reserve" and m.drop == "b"
+@pytest.mark.parametrize("held,expected", [(None, "reserve"), ("locked", "drop_then_reserve"),
+                                               ("frozen", "drop_then_reserve"), ("pending", "drop_then_reserve")])
+def test_ir_unfreeze_can_swap_only_a_nonbusy_starter(held, expected):
+    wk = WK({"a": "Out", "c": None, "b": None, "back": None}, {"a": 30, "b": 9, "c": 12, "back": 22}, protected={"a"})
+    me = team(["a", "c"])
+    if held == "locked": me.lock_games = {"a": "g"}
+    if held == "frozen": me.frozen = {"a"}
+    if held == "pending": me.pending = {0: ("a", 10, "g")}
+    m = moves.ir_fix(wk, me, {"players": ["a", "b", "c", "back"], "reserve": ["back"]})
+    assert m.kind == expected
+    assert m.reserve == (["a"] if expected == "reserve" else [])
+    assert m.drop == (None if expected == "reserve" else "b")
 
 
 @pytest.mark.parametrize("protected,expect", [((), "b"), (("b",), "back")])

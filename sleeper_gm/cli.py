@@ -14,13 +14,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
 import traceback
 from datetime import datetime
 
-from . import api, auth, config, notify, week
+from . import api, auth, claims, config, notify, week
 
 DUE_AHEAD_MS = 3 * 3600 * 1000
 
@@ -103,7 +104,7 @@ def brief_due(cfg, league_id, rs=None):
 
 
 def due(cfg, now_ms):
-    """Cheap check (two public calls) for whether a full cycle has anything to do."""
+    """Schedule check plus one public roster read per known league; no model or history."""
     rs, _ = _run_state()
     hh, mm = (int(x) for x in cfg["brief_at_et"].split(":"))
     now_et = datetime.now(week.ET)
@@ -111,6 +112,21 @@ def due(cfg, now_ms):
                      if "leagues" in rs else rs.get("brief_date") != _today())
     if (now_et.hour, now_et.minute) >= (hh, mm) and missing_brief:
         return True, True
+    for lid, saved in (rs.get("rosters") or {}).items():
+        state = claims.read_state(config.STATE_DIR / lid)
+        previous, following = claims.processing_bounds(now_ms, state)
+        last = saved.get("full_ms", 0)
+        # The scheduler runs at :10 and :40. The preceding tick is the final chance.
+        final_tick = ((following - 1 - 10 * 60_000) // (30 * 60_000)) * (30 * 60_000) + 10 * 60_000
+        if last < previous <= now_ms or last < final_tick <= now_ms < following:
+            return True, False
+        try:
+            roster = next((r for r in api.rest(f"/v1/league/{lid}/rosters", fresh=True) or []
+                           if str(r.get("roster_id")) == str(saved["rid"])), None)
+        except api.SleeperError:
+            return True, False  # let the full cycle report a failed refresh
+        if roster is None or roster_hash(roster) != saved.get("hash"):
+            return True, False
     state = api.rest("/v1/state/nba", fresh=True)
     last = rs.get("last_full_ms", 0)
     for g in api.scores(state["season"], int(state["leg"])):
@@ -119,6 +135,13 @@ def due(cfg, now_ms):
         if st == "in_game" or (st == "pre_game" and start - now_ms < DUE_AHEAD_MS) or (st == "complete" and start > last - 4 * 3600 * 1000):
             return True, False
     return False, False
+
+
+def roster_hash(roster):
+    fields = {"players": sorted(roster.get("players") or []),
+              "reserve": sorted(roster.get("reserve") or []),
+              "starters": list(roster.get("starters") or [])}
+    return hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
 
 
 def cmd_run(args):
@@ -150,6 +173,10 @@ def cmd_run(args):
             if warn:
                 ctx.append("errors", {"t": time.time(), "warning": warn})
             snap = run_league(ctx, brief=brief)
+            observed = getattr(ctx, "roster_for_gate", None)
+            if observed is not None:
+                rs.setdefault("rosters", {})[str(lid)] = {"rid": rid, "hash": roster_hash(observed),
+                                                         "full_ms": now_ms}
             results.append({"league": name, "p_win": snap["p_win"], "acted": snap["acted"]})
             if brief:
                 if snap["notified"]:

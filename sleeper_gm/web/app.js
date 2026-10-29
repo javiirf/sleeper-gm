@@ -751,6 +751,24 @@
     if (nowNeeds.length) {
       h.push('<section class="needs" aria-label="Needs you"><h2>Needs you</h2>' + nowNeeds.map(function (x) { return '<p>' + esc(x.text) + '</p>'; }).join('') + '</section>');
     }
+    var claims = obj(obj(S.now).claims);
+    h.push('<section class="sec"><h2>Claims</h2>');
+    var pending = arr(claims.owner).map(function (c) { return { c: obj(c), owner: true }; })
+      .concat(arr(claims.bot).map(function (c) { return { c: obj(c), owner: false }; }));
+    if (!pending.length) h.push('<p class="sec-note">' + (claims.available === false ? 'Pending claims could not be refreshed.' : 'No pending claims.') + '</p>');
+    else {
+      h.push('<ul class="feed">');
+      pending.forEach(function (entry, i) {
+        var c = entry.c, label = entry.owner ? 'Yours' : '#' + c.seq;
+        var text = 'Add ' + (c.add || 'player') + (c.drop ? ', drop ' + c.drop : '');
+        var inner = '<span class="t">' + esc(label) + '</span><span class="g" aria-hidden="true">' + glyph('add') + '</span><span class="txt">' + esc(text) + '</span>';
+        var why = entry.owner ? 'Your claim. The manager leaves it unchanged.' : c.why;
+        h.push(rowWrap('claim-' + i, 'move k-add', inner, '<div class="why"><p>' + esc(why) + '</p></div>'));
+      });
+      h.push('</ul>');
+    }
+    arr(claims.results).forEach(function (r) { h.push('<p class="sec-note">' + esc(obj(r).message) + '</p>'); });
+    h.push('</section>');
     if (!items.length) {
       h.push('<div class="empty-state"><strong>No moves yet this week</strong>Every lock, pass, pickup and lineup change shows up here as it happens.</div>');
     } else {

@@ -1,7 +1,7 @@
 # sleeper-gm
 
 An automated manager for **Sleeper fantasy basketball in Lock-In mode**. It locks the right games,
-sets your lineup before every tip, keeps your IR legal, and picks up free agents, choosing each
+sets your lineup before every tip, keeps your IR legal, and adds free agents or queues waiver claims, choosing each
 move by how much it raises your chance of winning this week's matchup. It runs on its own every
 30 minutes, sends you what it did, and comes with a phone app and an MCP server so Claude (or any
 MCP client) can read your matchup and explain its calls.
@@ -62,7 +62,31 @@ gap is usually large.
   that timed out may have gone through); state is re-read instead. Every write is read back.
 - Lock windows and tip times are re-checked right before every lineup save. A lock it cannot prove is
   legal is sent on its own, and a refusal is remembered.
-- Max 2 transactions a day per league (IR-forced drops included). Waiver claims are never submitted.
+- Max 2 immediate roster transactions a day per league (IR-forced drops included). Up to 3 bot
+  waiver claims pending (`max_claims`), ranked after your claims. Your claims are never edited or
+  cancelled. Each full run revalues pending bot claims. A claim stays unless it no longer clears
+  its required edge or a replacement improves its current score by at least 0.01 P(win).
+  No changes happen in the 15 minutes before estimated processing, and every submission must
+  appear in the authenticated pending list.
+- Max 6 claim mutations per league per ET day (`max_claim_writes_per_day`), counting submits,
+  updates, and cancellations, including failed and timed-out attempts. The writes log records
+  attempts before dispatch and counts each request once. Exhaustion reports "claim write budget
+  used" once that day and stops further claim writes.
+- Claims value only games after estimated processing, preserve the drop's earlier games, and account
+  for your queued claims when checking roster space. Rolling priority has an opportunity cost that
+  reaches zero at last place. FAAB bids are $0; leagues requiring positive bids get no bot claims.
+- Processing is estimated from the median ET time of completed/failed claims, default 03:10 ET.
+  This is not a prediction of when a player leaves waivers. A waiver refusal skips that player's
+  free-agent path until processing; three refusals without a successful add switch the league to
+  claims. Any confirmed free-agent add, including yours, resets that switch.
+- Claims send no metadata or bot fingerprint. Rolling submits send no settings; FAAB submits send
+  only `waiver_bid: 0`. Sleeper assigns `seq`. New claims follow the existing queue; only when
+  your claims have explicit priorities does the bot update its own priorities to follow yours.
+- Ownership stays local: before submitting, save an intent and a fresh pending-id list. Resolve
+  it by the response's transaction id, or by exactly one new pending row matching the add/drop.
+  Existing pending rows are never adopted by identity. A timeout is read back, never blindly
+  retried; an ambiguous or unresolved intent blocks further claims. Processing results are
+  reported once and retained in the Moves tab. Trades are never sent.
 - Your token, config, logs and data never live in this repo: `~/.config/sleeper-gm`,
   `~/.local/state/sleeper-gm`, `~/.cache/sleeper-gm`.
 
@@ -92,7 +116,9 @@ sleeper-gm on                     # allow changes
 sleeper-gm schedule install       # every 30 min at :10 and :40 (systemd, launchd or cron)
 ```
 
-Each scheduled run makes one cheap check and exits when nothing is happening; the first run after
+Each scheduled run checks games and one public roster response per known league, then exits when
+nothing is happening. Roster changes and the runs just before and after estimated waiver processing
+also trigger a full cycle; the first run after
 09:30 US Eastern sends the daily brief (Mondays also last week's review). `sleeper-gm off` stops all
 changes at once; `sleeper-gm schedule remove` stops the schedule.
 
@@ -115,7 +141,7 @@ sleeper-gm web --demo     # the demo league in the screenshots
 It binds to localhost and shows your league, so keep it private. With Tailscale:
 `tailscale serve --bg --https=8448 http://127.0.0.1:8770`, open it on your phone and use
 Add to Home Screen. Board: this week's win-chance line and every slot's call. Moves: every lock,
-pass and pickup with the reason. Season: results, share of the best possible lineup, and how its
+pass and pickup with the reason, plus pending claims and their last results. Season: results, share of the best possible lineup, and how its
 win chances held up.
 
 ## MCP server
@@ -143,7 +169,9 @@ Claude Desktop: add `{"command": "sleeper-gm", "args": ["mcp"]}` under `mcpServe
 |---|---|---|
 | `leagues` | `"auto"` | every in-season Lock-In league you own, or a list of league ids |
 | `live` | `false` | set by `sleeper-gm on` / `off` |
-| `moves` | `true` | free-agent adds and swaps |
+| `moves` | `true` | free-agent adds, swaps, and waiver claims |
+| `max_claims` | `3` | maximum bot claims pending per league |
+| `max_claim_writes_per_day` | `6` | claim submit/update/cancel attempts per league per ET day |
 | `max_transactions_per_day` | `2` | per league |
 | `protect_top` | `8` | never drop your best N |
 | `protect_ros` | `30.0` | never drop anyone worth this many points a game |
@@ -167,7 +195,8 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev,mcp,browser]"
 .venv/bin/pytest -q
 ```
 
-`AGENTS.md` has the league rules and API facts the code depends on.
+`AGENTS.md` has the league rules. [API notes](docs/sleeper-api-notes.md) record the read-only
+claim API evidence, exact web mutation strings, and assumptions that need live validation.
 
 ## Credits
 

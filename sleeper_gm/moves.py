@@ -72,7 +72,7 @@ def ir_fix(wk, team, roster):
 
     A healthy player on IR freezes the lineup in Sleeper's apps, so that is fixed first and
     only with roster/reserve operations (never a lineup save, which the freeze can block):
-    take him off into an open spot, or swap a BENCH player who is IR-eligible into his IR
+    take him off into an open spot, or swap a non-busy player who is IR-eligible into his IR
     spot, or drop the weakest unprotected BENCH player, or drop him if he is the weakest.
     Otherwise park one long-term Out player on IR to free an active spot."""
     league = wk.league
@@ -88,7 +88,7 @@ def ir_fix(wk, team, roster):
         if len(active) < max_active:
             return Move("reserve", reserve=[r for r in reserve if r != p],
                         why=f"{wk.name(p)} off IR ({status(p) or 'healthy'}), a healthy player on IR freezes the lineup")
-        swap_in = [q for q in bench if ir_eligible(league, status(q)) and not busy(team, q)]
+        swap_in = [q for q in active if ir_eligible(league, status(q)) and not busy(team, q)]
         if swap_in:
             q = max(swap_in, key=lambda q: ((wk.injuries.get(q) or {}).get("return_date") or "9999"))
             return Move("reserve", reserve=[q if r == p else r for r in reserve],
@@ -146,19 +146,23 @@ def free_agents(wk, limit=60):
     return fa[:limit]
 
 
-def with_player(wk, team, add, drop=None):
+def with_player(wk, team, add, drop=None, after_ms=None):
     """A copy of `team` with `add` on the bench (and `drop` gone), his remaining games as draws.
-    A player added now only scores games that tip after the add."""
+    A delayed claim keeps the drop's games before processing and only adds future games."""
     t = copy.copy(team)
     t.positions = dict(team.positions)
     t.games = dict(team.games)
     if drop:
-        t.positions.pop(drop, None)
-        t.games.pop(drop, None)
+        before = ({wk.days.index(g.date) for g in wk.player_games(drop)
+                   if g.date in wk.days and g.start_ms <= after_ms} if after_ms is not None else set())
+        t.games[drop] = {d: draw for d, draw in t.games.get(drop, {}).items() if d in before}
+        if not t.games[drop]:
+            t.positions.pop(drop, None)
+            t.games.pop(drop, None)
     t.positions[add] = (wk.players.get(add) or {}).get("fantasy_positions") or []
     draws = {}
     for g in wk.player_games(add):
-        if g.start_ms > wk.now_ms and g.date in wk.days:
+        if g.start_ms > max(wk.now_ms, after_ms or wk.now_ms) and g.date in wk.days:
             gd = wk.model.dist(add, {"game_id": g.game_id, "date": g.date, "start_ms": g.start_ms,
                                      "team": wk.team_of(add), "opp": g.team_opp(wk.team_of(add))})
             draws[wk.days.index(g.date)] = Draw(float(gd.p_play), np.asarray(gd.samples, dtype=float))

@@ -249,7 +249,7 @@ def test_action_explanations_escape_all_data(value):
     assert rendered == "<p>" + html.escape(value).replace("&#x27;", "&#39;") + ".</p>"
 
 
-@pytest.mark.parametrize("name,deleted", [("gm-shell-old", True), ("gm-data-old", True), ("gm-shell-v1", False), ("other-app", False), ("xgm-old", False)])
+@pytest.mark.parametrize("name,deleted", [("gm-shell-old", True), ("gm-data-old", True), ("gm-shell-v1", True), ("gm-shell-v2", False), ("other-app", False), ("xgm-old", False)])
 def test_service_worker_only_deletes_own_old_caches(name, deleted):
     from pathlib import Path
     source = (Path(web.__file__).with_suffix("") / "sw.js").read_text()
