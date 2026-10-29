@@ -1,12 +1,166 @@
 """Review regressions for local ownership, web-shaped writes and bounded churn."""
 import copy
 import json
+from types import SimpleNamespace
 
 import pytest
 
-from sleeper_gm import api, claims, config, cycle
+from sleeper_gm import api, auth, claims, cli, config, cycle, moves, notify
 from test_claims import context, fixture, ms, row, NOW
 from test_public import home  # noqa: F401
+from test_safety import _snapshot_for_cycle
+
+
+@pytest.mark.parametrize("error_type", [None, api.SleeperError, KeyError, TypeError])
+@pytest.mark.parametrize("phase", ["pending", "observe", "reconcile"])
+def test_claim_refresh_failure_keeps_cycle_running(home, monkeypatch, error_type, phase):
+    wk, me, opp, _r = fixture(monkeypatch)
+    ctx, _ = context(home, monkeypatch, [row(drop="cut")])
+    ctx.cfg["max_transactions_per_day"] = 0
+    intents = {"local": {"add": "add", "drop": "core", "leg": 2, "pending_before": ["owner"]}}
+    claims.save_state(ctx.dir, {"intents": intents})
+    monkeypatch.setattr(auth, "_cached", lambda: "test-private-sentinel")
+    monkeypatch.setattr(api, "league_transactions", lambda *a, **kw: [])
+    monkeypatch.setattr(cycle, "load", lambda ctx: (wk, me, opp))
+    monkeypatch.setattr(cycle, "snapshot", _snapshot_for_cycle)
+    monkeypatch.setattr(notify, "send", lambda *a, **kw: True)
+    monkeypatch.setattr(claims, "reconcile", lambda *a: None)
+    if error_type:
+        def fail(*a):
+            raise error_type("refresh failed: test-private-sentinel")
+        monkeypatch.setattr(claims, phase, fail)
+    protected = []
+    def locks(ctx, wk, me, opp, pending_drops):
+        protected.append(set(pending_drops))
+        return None, me.starters, {}
+    monkeypatch.setattr(cycle, "_locks", locks)
+    cycle._run(ctx, brief=False)
+    assert protected == [{"cut", "core"}]
+    assert claims.read_state(ctx.dir)["intents"] == intents
+    skipped = [a for a in ctx.acted if a.startswith("Claims skipped this run:")]
+    assert len(skipped) == int(error_type is not None)
+    assert "test-private-sentinel" not in json.dumps(ctx.acted)
+    if error_type:
+        assert "<token>" in skipped[0]
+
+
+@pytest.mark.parametrize("response_id", [False, True])
+def test_claim_readback_failure_protects_new_intent_drop(home, monkeypatch, response_id):
+    wk, me, opp, _r = fixture(monkeypatch)
+    ctx, rows = context(home, monkeypatch)
+    ctx.cfg["max_transactions_per_day"] = 0
+    monkeypatch.setattr(api, "league_transactions", lambda *a, **kw: [])
+    monkeypatch.setattr(cycle, "load", lambda ctx: (wk, me, opp))
+    monkeypatch.setattr(cycle, "snapshot", _snapshot_for_cycle)
+    monkeypatch.setattr(notify, "send", lambda *a, **kw: True)
+    original = ctx.writer.submit_claim
+    def submit(*a, **kw):
+        response = original(*a, **kw)
+        return response if response_id else None
+    ctx.writer.submit_claim = submit
+    def pending(ctx):
+        if rows:
+            raise api.SleeperError("pending read failed")
+        return []
+    monkeypatch.setattr(claims, "pending", pending)
+    protected = []
+    def locks(ctx, wk, me, opp, pending_drops):
+        protected.append(set(pending_drops))
+        return None, me.starters, {}
+    monkeypatch.setattr(cycle, "_locks", locks)
+    cycle._run(ctx, brief=False)
+    assert protected == [{"cut"}]
+    assert ctx.writer.calls == [("submit", "add")]
+    assert next(iter(claims.read_state(ctx.dir)["intents"].values()))["drop"] == "cut"
+    assert ctx.acted.count("Claims skipped this run: pending read failed") == 1
+
+
+@pytest.mark.parametrize("phase", ["initial", "readback"])
+@pytest.mark.parametrize("priority", [None, []])
+def test_malformed_claim_refresh_keeps_last_usable_pending(home, monkeypatch, phase, priority):
+    wk, me, opp, _r = fixture(monkeypatch)
+    # Use the real pending reader, including its authenticated API boundary.
+    pending_reader = claims.pending
+    ctx, rows = context(home, monkeypatch, [row(drop="old-drop")])
+    monkeypatch.setattr(claims, "pending", pending_reader)
+    ctx.cfg["max_transactions_per_day"] = 2 if phase == "initial" else 0
+    # No immediate candidates, but still exercise reservation checks before reconciliation.
+    monkeypatch.setattr(moves, "free_agents", lambda wk, limit=60: [] if phase == "initial" else ["add", "alt"])
+    last_known = copy.deepcopy(ctx.pending_claims)
+    def transactions(*a, **kw):
+        if kw.get("status") != "pending":
+            return []
+        refreshed = copy.deepcopy(rows)
+        if phase == "initial" or len(rows) > 1:
+            refreshed[-1]["settings"]["priority"] = priority
+        return refreshed
+    monkeypatch.setattr(api, "league_transactions", transactions)
+    monkeypatch.setattr(cycle, "load", lambda ctx: (wk, me, opp))
+    views = []
+    def snapshot(*args):
+        views.append(claims.view(ctx, wk))
+        return _snapshot_for_cycle(*args)
+    monkeypatch.setattr(cycle, "snapshot", snapshot)
+    monkeypatch.setattr(notify, "send", lambda *a, **kw: True)
+    protected = []
+    def locks(ctx, wk, me, opp, pending_drops):
+        protected.append(set(pending_drops))
+        return None, me.starters, {}
+    monkeypatch.setattr(cycle, "_locks", locks)
+    cycle._run(ctx, brief=False)
+    assert ctx.pending_claims == last_known
+    assert protected == [{"old-drop", "cut"} if phase == "readback" else {"old-drop"}]
+    assert views[0]["available"] is False
+    assert sum(a.startswith("Claims skipped this run:") for a in ctx.acted) == 1
+    assert bool(claims.read_state(ctx.dir).get("intents")) is (phase == "readback")
+
+
+@pytest.mark.parametrize("pending,bot,spaces,kind", [
+    ([], {}, 1, "add"),
+    ([row()], {}, 1, "swap"),
+    ([row()], {"owner": {"leg": 2}}, 1, "add"),
+    ([row(drop="cut")], {}, 1, "add"),
+    ([row(add="core")], {}, 1, "add"),
+    ([row(add="taken")], {}, 1, "add"),
+    ([row(adds={"owner_add": 2})], {}, 1, "add"),
+    ([row(), row("duplicate")], {}, 2, "add"),
+    ([row(), row("second", add="alt")], {}, 2, "swap"),
+    ([row()], {}, 2, "add"),
+])
+def test_immediate_add_reserves_viable_owner_claim_vacancies(home, monkeypatch, pending, bot, spaces, kind):
+    wk, me, opp, _r = fixture(monkeypatch, values={"core": 40, "cut": 12, "add": 22,
+                                                "alt": 21, "owner_add": 24, "taken": 10})
+    wk.league["roster_positions"].extend(["BN"] * spaces)
+    wk.rosters[2]["players"] = ["taken"]
+    ctx, _ = context(home, monkeypatch, pending)
+    ctx.live = False
+    claims.save_state(ctx.dir, {"bot": bot})
+    monkeypatch.setattr(api, "league_transactions", lambda *a, **kw: [])
+    monkeypatch.setattr(moves, "decide", lambda *a, **kw: SimpleNamespace(p_win=.5))
+    cycle._moves(ctx, wk, me, opp)
+    assert ctx.acted[0].startswith("Would " + kind + ":")
+    assert ctx.writer.calls == []
+
+
+@pytest.mark.parametrize("processing,tick", [("03:08", "02:40"), ("03:20", "02:40"),
+                                           ("03:30", "02:40"), ("03:35", "03:10")])
+@pytest.mark.parametrize("phase,expected", [("previous", False), ("due", True), ("already_ran", False)])
+def test_final_claim_tick_leaves_freeze_and_planning_time(home, monkeypatch, processing, tick, phase, expected):
+    cfg = {**config.load(), "brief_at_et": "23:59"}
+    roster = {"roster_id": 1, "players": ["core"], "starters": ["core"], "reserve": []}
+    tick_ms = ms("2026-10-29T" + tick)
+    now = tick_ms - 30 * 60_000 if phase == "previous" else tick_ms
+    last = tick_ms if phase == "already_ran" else tick_ms - 60 * 60_000
+    saved = {"leagues": ["fake"], "brief": {"fake": cli._today()},
+             "rosters": {"fake": {"rid": 1, "hash": cli.roster_hash(roster), "full_ms": last}}}
+    config.STATE_DIR.mkdir(exist_ok=True)
+    (config.STATE_DIR / "run.json").write_text(json.dumps(saved))
+    hour, minute = map(int, processing.split(":"))
+    claims.save_state(config.league_state("fake"), {"process_second": hour * 3600 + minute * 60})
+    monkeypatch.setattr(api, "rest", lambda path, **kw: [roster] if path.endswith("/rosters")
+                        else {"season": "2026", "leg": 2})
+    monkeypatch.setattr(api, "scores", lambda *a: [])
+    assert cli.due(cfg, now) == (expected, False)
 
 
 @pytest.mark.parametrize("bid", [None, 0])
@@ -50,17 +204,17 @@ def test_local_intent_matches_only_one_new_pending_identity(home, monkeypatch, n
 
 
 @pytest.mark.parametrize("priority", [None, 0, 8])
-def test_existing_bot_only_reordered_for_explicit_owner_priority(home, monkeypatch, priority):
+def test_existing_bot_never_reordered_for_owner_priority(home, monkeypatch, priority):
     wk, me, opp, _r = fixture(monkeypatch)
     owner = row("owner", drop="missing", seq=40)
     if priority is not None:
         owner["settings"]["priority"] = priority
     ctx, rows = context(home, monkeypatch, [owner, row("bot", "add", "cut", seq=50)])
-    original = copy.deepcopy(owner)
+    original = copy.deepcopy(rows)
     claims.save_state(ctx.dir, {"bot": {"bot": {"leg": 2}}})
     claims.reconcile(ctx, wk, me, opp)
-    assert ctx.writer.calls == ([] if priority is None else [("update", "bot", priority + 1)])
-    assert rows[0] == original
+    assert ctx.writer.calls == []
+    assert rows == original
     assert rows[1]["settings"]["seq"] == 50
 
 
@@ -165,32 +319,33 @@ def test_late_response_log_does_not_consume_new_day_budget(home, monkeypatch):
     assert ctx.claim_writes_today() == 0
 
 
-@pytest.mark.parametrize("priority,expected", [(None, ["submit"]), (0, ["submit", "update"])])
-def test_new_claim_uses_server_sequence_then_optional_priority(home, monkeypatch, priority, expected):
+@pytest.mark.parametrize("priority", [None, 0, 8])
+def test_new_claim_uses_only_server_append_order(home, monkeypatch, priority):
     wk, me, opp, _r = fixture(monkeypatch)
     owner = row("owner", drop="missing", seq=17)
     if priority is not None:
         owner["settings"]["priority"] = priority
     ctx, rows = context(home, monkeypatch, [owner])
     claims.reconcile(ctx, wk, me, opp)
-    assert [c[0] for c in ctx.writer.calls] == expected
-    assert rows[1]["settings"] == ({"seq": 18} if priority is None else {"seq": 18, "priority": 1})
+    assert ctx.writer.calls == [("submit", "add")]
+    assert rows[1]["settings"] == {"seq": 18}
     assert rows[0] == owner
 
 
-@pytest.mark.parametrize("changed_key,confirmed", [("seq", True), ("waiver_bid", False), ("priority", False)])
-def test_reorder_readback_compares_only_sent_settings(home, monkeypatch, changed_key, confirmed):
+@pytest.mark.parametrize("changed_key", ["seq", "priority"])
+def test_submit_readback_ignores_server_order(home, monkeypatch, changed_key):
     wk, me, opp, _r = fixture(monkeypatch)
-    ctx, rows = context(home, monkeypatch, [row("owner", drop="missing", settings={"priority": 0}),
-                                          row("bot", "add", "cut", settings={"seq": 7, "waiver_bid": 0})])
-    claims.save_state(ctx.dir, {"bot": {"bot": {"leg": 2}}})
-    original = ctx.writer.update_claim
-    def update(*args, **kw):
-        original(*args, **kw)
+    ctx, rows = context(home, monkeypatch, [row("owner", drop="missing", settings={"priority": 0})])
+    original = ctx.writer.submit_claim
+    def submit(*args, **kw):
+        response = original(*args, **kw)
         rows[1]["settings"][changed_key] = 99
-    ctx.writer.update_claim = update
+        return response
+    ctx.writer.submit_claim = submit
     claims.reconcile(ctx, wk, me, opp)
-    assert any("update not confirmed" in a for a in ctx.acted) is (not confirmed)
+    assert ctx.writer.calls == [("submit", "add")]
+    assert rows[1]["settings"][changed_key] == 99
+    assert any(a.startswith("Claim placed:") for a in ctx.acted)
 
 
 def test_pending_identity_baseline_is_read_immediately_before_submit(home, monkeypatch):
@@ -244,7 +399,7 @@ def test_hysteresis_revalues_incumbent_outside_candidate_shortlist(home, monkeyp
 
 
 @pytest.mark.parametrize("initial,latest", [(None, 0), (0, 5), (0, None)])
-def test_priority_uses_owner_settings_from_submit_readback(home, monkeypatch, initial, latest):
+def test_owner_reorder_during_submit_does_not_reorder_bot(home, monkeypatch, initial, latest):
     wk, me, opp, _r = fixture(monkeypatch)
     owner = row("owner", drop="missing")
     if initial is not None:
@@ -260,5 +415,6 @@ def test_priority_uses_owner_settings_from_submit_readback(home, monkeypatch, in
         return response
     ctx.writer.submit_claim = submit
     claims.reconcile(ctx, wk, me, opp)
-    assert rows[1]["settings"].get("priority") == (None if latest is None else latest + 1)
+    assert ctx.writer.calls == [("submit", "add")]
+    assert "priority" not in rows[1]["settings"]
     assert rows[0]["settings"].get("priority") == latest

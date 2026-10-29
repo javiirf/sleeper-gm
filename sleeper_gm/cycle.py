@@ -247,9 +247,8 @@ def _moves(ctx, wk, me, opp):
     if getattr(ctx, "claims_available", False):
         try:
             claims.observe(ctx, wk)
-        except api.SleeperError as e:
-            ctx.claims_available = False
-            ctx.acted.append(f"Could not refresh claims ({e}); leaving claims unchanged")
+        except (api.SleeperError, KeyError, TypeError) as e:
+            _claims_skipped(ctx, e)
     if not ctx.cfg.get("moves", True):
         return wk, me, opp
     budget = ctx.cfg["max_transactions_per_day"] - ctx.transactions_today()
@@ -258,11 +257,25 @@ def _moves(ctx, wk, me, opp):
         attempts += 1
         pending_rows = getattr(ctx, "pending_claims", [])
         pending_adds = {p for r in pending_rows for p in claims.owned_players(r, "adds", ctx.rid)}
+        bot = claims.read_state(ctx.dir).get("bot", {})
+        roster = wk.rosters[ctx.rid]
+        active = set(roster.get("players") or []) - set(roster.get("reserve") or [])
+        max_active, _ = moves.roster_limits(wk.league)
+        allocated = {p for r in wk.rosters.values() for p in r.get("players") or []}
+        reserved = 0
+        for row in sorted(pending_rows, key=claims.order):
+            if str(row.get("transaction_id")) in bot or claims.owned_players(row, "drops", ctx.rid):
+                continue
+            adds = set(claims.owned_players(row, "adds", ctx.rid))
+            if adds & allocated or len(active) + reserved + len(adds) > max_active:
+                continue
+            reserved += len(adds)
+            allocated.update(adds)
         # Do not invalidate an existing owner or bot claim by dropping its required player.
         protected = wk.protected
-        wk.protected = protected | {p for r in pending_rows for p in claims.owned_players(r, "drops", ctx.rid)}
+        wk.protected = protected | _pending_claim_drops(ctx)
         try:
-            m = moves.best_move(wk, me, opp, wk.rosters[ctx.rid], exclude=ctx.on_waivers() | pending_adds)
+            m = moves.best_move(wk, me, opp, roster, exclude=ctx.on_waivers() | pending_adds, reserved=reserved)
         finally:
             wk.protected = protected
         if m is None:
@@ -292,7 +305,10 @@ def _moves(ctx, wk, me, opp):
             ctx.acted.append(f"Could not add {wk.name(m.add)}: {err or 'not on the roster after the write'}")
             break
     if getattr(ctx, "claims_available", False) and not getattr(ctx, "week_rolled_over", False):
-        claims.reconcile(ctx, wk, me, opp)
+        try:
+            claims.reconcile(ctx, wk, me, opp)
+        except (api.SleeperError, KeyError, TypeError) as e:
+            _claims_skipped(ctx, e)
     return wk, me, opp
 
 
@@ -427,26 +443,34 @@ def _describe_lineup(ctx, wk, old, new, would=False):
                          + (" / out " + ", ".join(wk.name(p) for p in outs) if outs else ""))
 
 
+def _claims_skipped(ctx, error):
+    ctx.claims_available = False
+    if not any(a.startswith("Claims skipped this run:") for a in ctx.acted):
+        ctx.acted.append("Claims skipped this run: " + api.redact(str(error)))
+
+
+def _pending_claim_drops(ctx):
+    """Protect the last pending read plus submissions whose outcome is still unknown."""
+    drops = {p for r in getattr(ctx, "pending_claims", []) if r.get("type") in (None, "waiver")
+             for p in claims.owned_players(r, "drops", ctx.rid)}
+    intents = claims.read_state(ctx.dir).get("intents", {})
+    return drops | {r["drop"] for r in intents.values() if r.get("drop")}
+
+
 def _claims_check(ctx, wk, me):
     """Read pending claims once; warn about risky drops and keep them out of locks."""
     ctx.claims_available = False
+    ctx.pending_claims = getattr(ctx, "pending_claims", [])
     try:
         rows = claims.pending(ctx)
         ctx.pending_claims = rows
         ctx.claims_available = True
-    except (api.SleeperError, KeyError, TypeError):
-        ctx.pending_claims = []
-        return set()
-    drops = set()
-    for r in rows:
-        if r.get("type") not in (None, "waiver"):
-            continue
-        for p, rid in (r.get("drops") or {}).items():
-            if str(rid) != str(ctx.rid):
-                continue
-            drops.add(p)
-            if p in me.starters or p in me.lock_games or p in wk.protected:
-                ctx.acted.append(f"NEEDS YOU: your pending waiver claim drops {wk.name(p)}, who is starting, locked or one of your best players")
+    except (api.SleeperError, KeyError, TypeError) as e:
+        _claims_skipped(ctx, e)
+    drops = _pending_claim_drops(ctx)
+    for p in sorted(drops):
+        if p in me.starters or p in me.lock_games or p in wk.protected:
+            ctx.acted.append(f"NEEDS YOU: your pending waiver claim drops {wk.name(p)}, who is starting, locked or one of your best players")
     return drops
 
 
@@ -655,8 +679,7 @@ def _run(ctx, brief):
     wk, me, opp = _moves(ctx, wk, me, opp)
     if ctx.live and any(a.startswith(("Added", "Swap")) for a in ctx.acted):
         wk, me, opp = load(ctx)
-    if getattr(ctx, "claims_available", False):
-        pending_drops = {p for r in ctx.pending_claims for p in claims.owned_players(r, "drops", ctx.rid)}
+    pending_drops = _pending_claim_drops(ctx)
     dec, starters, done = _locks(ctx, wk, me, opp, pending_drops)
     # Keep the actually observed roster, not the proposed lineup, for the cheap gate.
     ctx.roster_for_gate = wk.rosters[ctx.rid] if hasattr(wk, "rosters") else None

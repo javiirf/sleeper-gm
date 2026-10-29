@@ -85,13 +85,15 @@ def test_owner_drop_cannot_be_reused_even_when_protected_roster_is_full(monkeypa
     assert claims.plan(wk, me, opp, r, [row(drop="cut")], PROCESS, 3) == []
 
 
-@pytest.mark.parametrize("after", [None, PROCESS])
-def test_claim_scores_only_games_after_processing_and_keeps_drop_before(monkeypatch, after):
+@pytest.mark.parametrize("after,add_days", [(None, {0, 1, 2}), (NOW + 3600_000, {1, 2}),
+                                           (PROCESS, {2}), (PROCESS + 40 * 3600_000, set())])
+def test_claim_removes_drop_and_limits_add_games_after_processing(monkeypatch, after, add_days):
     wk, me, _opp, _r = fixture(monkeypatch)
     t = moves.with_player(wk, me, "add", "cut", after_ms=after)
-    assert set(t.games["add"]) == ({0, 1, 2} if after is None else {2})
-    assert set(t.games.get("cut", {})) == (set() if after is None else {0, 1})
+    assert set(t.games["add"]) == add_days
+    assert "cut" not in t.games and "cut" not in t.positions
     assert set(me.games["cut"]) == {0, 1, 2}
+    assert "cut" in me.positions
 
 
 @pytest.mark.parametrize("samples,expected", [([], "03:10"), (["03:08", "03:09", "06:00"], "03:09")])
@@ -290,7 +292,7 @@ def test_cycle_stops_futile_free_agent_attempts_and_routes_to_claims(home, monke
     def free(*args, **kw):
         calls.append(kw["add"])
         raise api.SleeperError("At least one of the players being added in is on waivers.")
-    def best(*args, exclude=()):
+    def best(*args, exclude=(), reserved=0):
         excluded.append(set(exclude))
         return moves.Move("add", add="candidate" + str(len(calls)))
     ctx.writer.free_agent = free
@@ -417,17 +419,17 @@ const rowWrap = (key, cls, inner, why) => inner + why;
 
 
 @pytest.mark.parametrize("commit", [True, False])
-def test_bot_reorder_after_owner_changes_checks_readback(home, monkeypatch, commit):
+def test_owner_reorder_never_triggers_bot_update(home, monkeypatch, commit):
     wk, me, opp, _ = fixture(monkeypatch)
     ctx, rows = context(home, monkeypatch, [row("owner", drop="missing", seq=8, settings={"seq": 8, "priority": 8}), row("bot", "add", "cut", seq=1)], commit)
     original = copy.deepcopy(rows[0])
     claims.save_state(ctx.dir, {"bot": {"bot": {"leg": 2}}})
     claims.reconcile(ctx, wk, me, opp)
-    assert ctx.writer.calls == [("update", "bot", 9)]
+    assert ctx.writer.calls == []
     assert rows[0] == original
-    assert (rows[1]["settings"].get("priority") == 9) is commit
+    assert "priority" not in rows[1]["settings"]
     assert rows[1]["settings"]["seq"] == 1
-    assert any("update not confirmed" in a for a in ctx.acted) is (not commit)
+    assert not any("update not confirmed" in a for a in ctx.acted)
 
 
 @pytest.mark.parametrize("limit", [0, 1, 2, 3])

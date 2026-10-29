@@ -189,8 +189,13 @@ def plan(wk, me, opp, roster, owner, process_ms, limit, existing=()):
 
 def pending(ctx):
     # Omit leg to include claims surviving the Sunday/Monday rollover.
-    return [r for r in api.league_transactions(ctx.league_id, status="pending", roster_id=ctx.rid) or []
+    rows = [r for r in api.league_transactions(ctx.league_id, status="pending", roster_id=ctx.rid) or []
             if r.get("type") in (None, "waiver")]
+    # Parse before replacing the last usable queue, including for display after a failure.
+    for row in rows:
+        order(row)
+        identity(row)
+    return rows
 
 
 def identity(row):
@@ -349,7 +354,7 @@ def reconcile(ctx, wk, me, opp):
             return
         ctx.acted.append("Stale bot claim no longer pending")
     bid = 0 if wk.league["settings"].get("waiver_type") == 2 else None
-    for i, m in enumerate(wanted):
+    for m in wanted:
         row = next((r for r in ctx.pending_claims if identity(r) == request_identity(m, ctx.rid)), None)
         if row is None:
             if not allowed():
@@ -400,27 +405,3 @@ def reconcile(ctx, wk, me, opp):
             continue
         bot[tid]["why"], bot[tid]["score"] = m["why"], m["score"]
         save_state(ctx.dir, state)
-        priorities = [int(r["settings"]["priority"]) for r in ctx.pending_claims
-                      if str(r.get("transaction_id")) not in bot
-                      and (r.get("settings") or {}).get("priority") is not None]
-        if not priorities:
-            continue  # the server's new seq puts this claim after the existing queue
-        priority = max(priorities) + 1 + i
-        settings = row.get("settings") or {}
-        if settings.get("priority") == priority:
-            continue
-        if not allowed():
-            return
-        sent_settings = {k: v for k, v in settings.items() if k != "seq"}
-        sent_settings["priority"] = priority
-        try:
-            ctx.writer.update_claim(ctx.league_id, row.get("leg", wk.week), tid, priority,
-                                    summary=m["why"], settings=settings)
-        except api.SleeperError as e:
-            ctx.acted.append(f"Claim update uncertain ({e}); checking pending claims")
-        ctx.pending_claims = pending(ctx)
-        budget_available(ctx, state)
-        got = next((r for r in ctx.pending_claims if str(r.get("transaction_id")) == tid), None)
-        if not got or any((got.get("settings") or {}).get(k) != v for k, v in sent_settings.items()):
-            ctx.acted.append("Claim update not confirmed; leaving the remaining queue unchanged")
-            return

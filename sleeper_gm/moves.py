@@ -154,17 +154,13 @@ def free_agents(wk, limit=60):
 
 def with_player(wk, team, add, drop=None, after_ms=None):
     """A copy of `team` with `add` on the bench (and `drop` gone), his remaining games as draws.
-    A delayed claim keeps the drop's games before processing and only adds future games."""
+    A delayed claim limits only the add's games to tips after processing."""
     t = copy.copy(team)
     t.positions = dict(team.positions)
     t.games = dict(team.games)
     if drop:
-        before = ({wk.days.index(g.date) for g in wk.player_games(drop)
-                   if g.date in wk.days and g.start_ms <= after_ms} if after_ms is not None else set())
-        t.games[drop] = {d: draw for d, draw in t.games.get(drop, {}).items() if d in before}
-        if not t.games[drop]:
-            t.positions.pop(drop, None)
-            t.games.pop(drop, None)
+        t.positions.pop(drop, None)
+        t.games.pop(drop, None)
     t.positions[add] = (wk.players.get(add) or {}).get("fantasy_positions") or []
     draws = {}
     for g in wk.player_games(add):
@@ -176,9 +172,9 @@ def with_player(wk, team, add, drop=None, after_ms=None):
     return t
 
 
-def best_move(wk, team, opp, roster, exclude=()):
+def best_move(wk, team, opp, roster, exclude=(), reserved=0):
     """The single best roster move now: fill an open active spot, or an add/drop swap that
-    clears swap_edge. None if nothing is worth doing."""
+    clears swap_edge. Owner claims reserve active spots. None if nothing is worth doing."""
     if not wk.days:
         return None
     D = len(wk.days)
@@ -192,7 +188,7 @@ def best_move(wk, team, opp, roster, exclude=()):
     screened = sorted(((make_plan(with_player(wk, team, a), D).value - base_ev, a) for a in cands), reverse=True)
     shortlist = list(dict.fromkeys([a for _e, a in screened[:8]] + cands[:4]))
     base_p = decide(team, opp, D, n=4000).p_win
-    if len(active) < max_active:
+    if len(active) + reserved < max_active:
         scored = []
         for a in shortlist:
             p = decide(with_player(wk, team, a), opp, D, n=4000).p_win

@@ -28,12 +28,13 @@ winning each weekly head-to-head matchup (and the season), not raw points.
 - Claims use `submit_waiver_claim`, `update_waiver_claim`, and `cancel_waiver_claim` only.
   Arguments and web strings are documented in `docs/sleeper-api-notes.md`. Rolling submits send
   no settings; FAAB submits send only `waiver_bid: 0`. Never send metadata or write server-assigned
-  `seq`. Update only bot `priority`, and only when owner claims have explicit priorities;
-  preserve other writable settings and put bot priorities after the maximum owner priority.
+  `seq` or `priority`. The bot appends claims using server order and never reorders anything;
+  the owner can reorder claims in the app. Never call `Writer.update_claim` from reconciliation.
 - Pending claims are authenticated `league_transactions(status:"pending", roster_id:...)` reads.
   Bot ids and intents are local league state. Save a fresh pending-id baseline before submission;
   recover by response id or a unique new pending add/drop identity, never an existing owner row.
-  An unresolved intent blocks further claims. Only bot claims may be updated/cancelled; owner claims go first. Up to `max_claims` (default 3) bot claims may be pending. Re-plan on full
+  An unresolved intent blocks further claims. Only bot claims may be cancelled; owner claims are
+  modeled first. Up to `max_claims` (default 3) bot claims may be pending. Re-plan on full
   runs, keeping eligible incumbents unless they fall below their required edge or a replacement
   beats their current score by at least 0.01 P(win). Never change claims within 15 minutes of
   estimated processing, and confirm in pending reads. At most `max_claim_writes_per_day` (default 6)

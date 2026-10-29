@@ -116,8 +116,9 @@ def due(cfg, now_ms):
         state = claims.read_state(config.STATE_DIR / lid)
         previous, following = claims.processing_bounds(now_ms, state)
         last = saved.get("full_ms", 0)
-        # The scheduler runs at :10 and :40. The preceding tick is the final chance.
-        final_tick = ((following - 1 - 10 * 60_000) // (30 * 60_000)) * (30 * 60_000) + 10 * 60_000
+        # Leave ten minutes to plan before the freeze, rounding down to a :10/:40 tick.
+        cutoff = following - claims.FREEZE_MS - 10 * 60_000
+        final_tick = ((cutoff - 10 * 60_000) // (30 * 60_000)) * (30 * 60_000) + 10 * 60_000
         if last < previous <= now_ms or last < final_tick <= now_ms < following:
             return True, False
         try:

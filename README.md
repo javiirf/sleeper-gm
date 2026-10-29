@@ -85,25 +85,26 @@ identify planned games or reserves without promising an injury substitution the 
 - Lock windows and tip times are re-checked right before every lineup save. A lock it cannot prove is
   legal is sent on its own, and a refusal is remembered.
 - Max 2 immediate roster transactions a day per league (IR-forced drops included). Up to 3 bot
-  waiver claims pending (`max_claims`), ranked after your claims. Your claims are never edited or
+  waiver claims pending (`max_claims`), appended to the queue. Your claims are never edited or
   cancelled. Each full run revalues pending bot claims. A claim stays unless it no longer clears
   its required edge or a replacement improves its current score by at least 0.01 P(win).
   No changes happen in the 15 minutes before estimated processing, and every submission must
   appear in the authenticated pending list.
 - Max 6 claim mutations per league per ET day (`max_claim_writes_per_day`), counting submits,
-  updates, and cancellations, including failed and timed-out attempts. The writes log records
+  cancellations, and historical updates, including failed and timed-out attempts. The writes log records
   attempts before dispatch and counts each request once. Exhaustion reports "claim write budget
   used" once that day and stops further claim writes.
-- Claims value only games after estimated processing, preserve the drop's earlier games, and account
-  for your queued claims when checking roster space. Rolling priority has an opportunity cost that
-  reaches zero at last place. FAAB bids are $0; leagues requiring positive bids get no bot claims.
+- Claims value only the add's games after estimated processing and remove all of the drop's games.
+  Immediate adds reserve space for your viable queued no-drop claims. Rolling priority has an
+  opportunity cost that reaches zero at last place. FAAB bids are $0; leagues requiring positive
+  bids get no bot claims.
 - Processing is estimated from the median ET time of completed/failed claims, default 03:10 ET.
   This is not a prediction of when a player leaves waivers. A waiver refusal skips that player's
   free-agent path until processing; three refusals without a successful add switch the league to
   claims. Any confirmed free-agent add, including yours, resets that switch.
 - Claims send no metadata or bot fingerprint. Rolling submits send no settings; FAAB submits send
-  only `waiver_bid: 0`. Sleeper assigns `seq`. New claims follow the existing queue; only when
-  your claims have explicit priorities does the bot update its own priorities to follow yours.
+  only `waiver_bid: 0`. Sleeper assigns the append order. The bot never writes `priority` or `seq`
+  and never reorders any claims. You can reorder claims in the app.
 - Ownership stays local: before submitting, save an intent and a fresh pending-id list. Resolve
   it by the response's transaction id, or by exactly one new pending row matching the add/drop.
   Existing pending rows are never adopted by identity. A timeout is read back, never blindly

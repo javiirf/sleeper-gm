@@ -115,11 +115,10 @@ Settings evidence from the same bundle:
   existing settings during a priority update. It is read for ordering and display only.
 - Rolling submits omit settings arguments and variables entirely. FAAB submits send exactly
   `{"waiver_bid": 0}`. New claims follow existing claims by the server's assigned sequence.
-- Only if at least one owner claim has an explicit `priority` (including 0), update the
-  bot's own claims to `max(owner priority) + 1 + i`. The update passes the row's existing
-  writable settings plus that priority, excluding read-only `seq`. Owner claims are never
-  reordered. With no owner priority, no ordering update is sent. Read-back compares only
-  values actually sent, never an invented expected sequence.
+- The bot appends claims using server order and never reorders anything, even when owner
+  claims have explicit priorities. It never calls `update_waiver_claim` or writes `priority`
+  or `seq`. The owner can reorder claims in the app. Read-back checks the add/drop and any
+  submitted bid, with no priority or sequence checks.
 - Although the schema supports `k_metadata`/`v_metadata`, neither the web actions nor the
   bot send them. Transaction metadata is exposed through the public REST transactions
   endpoint. Sending a bot marker would leave a public fingerprint with no need for it.
@@ -135,9 +134,11 @@ Settings evidence from the same bundle:
 ## Policy and read-only limits
 
 - Candidates use the existing rotation filter and `with_player`/`decide`/`keep_value`
-  scale. Adds get only tips strictly after estimated processing; planned drops keep
-  their earlier draws. Owner claims are modeled first, conservatively assuming they
-  succeed when their required drop still exists. This is not a prediction that the
+  scale. Adds get only tips strictly after estimated processing; planned drops lose all
+  positions and draws, since pending drops cannot be locked. Immediate free-agent adds
+  reserve active roster vacancies for viable owner no-drop claims, excluding bot claims.
+  Owner claims are modeled first, conservatively assuming they succeed when their required
+  drop still exists. This is not a prediction that the
   owner wins every contested claim. Alternative bot claims can share a drop. No-drop
   claims cannot exceed projected vacancies. Pending bot claims are revalued with their
   actual add/drop, including incumbents outside the new-candidate scoring shortlist.
@@ -159,6 +160,8 @@ Settings evidence from the same bundle:
   conservatively as first. FAAB bids are 0; positive minimum-bid leagues are skipped.
 - The processing clock is the median ET time of day of observed complete/failed
   waiver rows, default 03:10 ET, extrapolated daily with ET daylight-saving handling.
+  The final pre-processing wake-up is the last :10/:40 tick at or before processing
+  minus the 15-minute freeze and ten minutes for planning.
   It is an estimate, not a guaranteed service time. Custom non-daily processing
   calendars and manual commissioner runs can make that estimate wrong. A player
   remaining on waivers after a run is expected and does not reset this assumption.
