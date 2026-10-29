@@ -59,16 +59,20 @@ class Draw:
     def mean(self):
         return float(self.samples.mean())
 
-    def value(self, nxt):
+    def value(self, nxt, threshold=None):
         """Expected slot value with this draw, given the slot's continuation `nxt`.
 
         nxt = (c, terminal). terminal: this is the slot's last draw, forced, a DNP scores 0.
-        Otherwise lock when the game beats c, and a DNP just leaves the slot at c.
+        Otherwise lock at the owner's threshold when set, or when the game beats c.
+        A DNP leaves the slot at c unless the owner's threshold locks its zero.
         """
         c, terminal = nxt
         if terminal:
             return self.p_play * self.mean
-        return self.p_play * float(np.maximum(self.samples, c).mean()) + (1 - self.p_play) * c
+        outcomes = (np.maximum(self.samples, c) if threshold is None
+                    else np.where(self.samples >= threshold, self.samples, c))
+        dnp = 0.0 if threshold is not None and threshold <= 0 else c
+        return self.p_play * float(outcomes.mean()) + (1 - self.p_play) * dnp
 
 
 @dataclass
@@ -83,6 +87,7 @@ class Team:
     frozen: set = field(default_factory=set)       # pids that cannot be moved now
     final_done: set = field(default_factory=set)   # pids whose last game of the week is already over
     now_ms: int | None = None
+    lock_at: dict = field(default_factory=dict)    # pid -> owner threshold for this week only
 
     def open_slots(self, extra_locks=()):
         return [i for i in range(len(self.slots)) if i not in self.locked and i not in extra_locks]
@@ -131,9 +136,9 @@ def slot_events(team, members, D, daily=False):
     return events, after
 
 
-def look_value(dr, C, transition):
+def look_value(dr, C, transition, threshold=None):
     normal, delayed = transition
-    return HANDOFF_P * dr.value(C[normal]) + (1 - HANDOFF_P) * dr.value(C[delayed])
+    return HANDOFF_P * dr.value(C[normal], threshold) + (1 - HANDOFF_P) * dr.value(C[delayed], threshold)
 
 
 def slot_dp(team, members, D, base, fixed0=None, skip0=False, *, events=None, after=None):
@@ -149,15 +154,15 @@ def slot_dp(team, members, D, base, fixed0=None, skip0=False, *, events=None, af
         tip, d = events[i]
         best, pick = nxt, None
         if d == 0 and fixed0 is not None and (tip is None or team.games[fixed0][0].tip_ms == tip):
-            best, pick = (look_value(team.games[fixed0][0], C, after[i]), False), fixed0
+            best, pick = (look_value(team.games[fixed0][0], C, after[i], team.lock_at.get(fixed0)), False), fixed0
         elif not (d == 0 and skip0):
             for p in members:
                 dr = team.games.get(p, {}).get(d)
                 if dr is None or (tip is not None and dr.tip_ms != tip) or (d == 0 and p in team.frozen):
                     continue
-                v = look_value(dr, C, after[i])
-                # with games still to come a draw is never worse than skipping, so a tie plays him
-                # (the option is free); before a forced last draw, only a strictly better one
+                v = look_value(dr, C, after[i], team.lock_at.get(p))
+                # An owner threshold can make a look worse than skipping. With later
+                # games a tie still plays him; before a forced last draw require an edge.
                 zero_final = nxt[1] and dr.p_play == 0 and v == best[0] == 0 and pick is None
                 if (v > best[0] + 1e-9 or zero_final
                         or (not nxt[1] and v >= best[0] - 1e-9 and (pick is None or v > best[0] + 1e-9))):
@@ -302,7 +307,7 @@ def realize(team, plan, D):
         for i in range(len(ch) - 1, -1, -1):
             if ch[i] is not None:
                 d = plan.events[s][i][1]
-                nxt = (look_value(team.games[ch[i]][d], Cs, plan.after[s][i]), False)
+                nxt = (look_value(team.games[ch[i]][d], Cs, plan.after[s][i], team.lock_at.get(ch[i])), False)
             Cs[i] = nxt
         C[s] = Cs
     return Plan(plan.bind, C, plan.choice, plan.base, sum(C[s][0][0] for s in C), plan.events, plan.after)
@@ -326,8 +331,8 @@ def _draw(pid, d, dr, n, seed):
 def simulate(team, plan, locks, n, seed, tilt=0.0):
     """Monte Carlo week totals following `plan` after `locks`, chronologically per slot.
 
-    `tilt` shifts every future lock threshold by that many points: positive holds out
-    for bigger games (worth it when behind), negative locks earlier (when ahead).
+    `tilt` shifts model thresholds: positive holds out for bigger games (worth it
+    when behind), negative locks earlier (when ahead). Owner thresholds stay fixed.
     """
     total = np.full(n, sum(team.locked.values()) + sum(team.pending[s][1] for s in locks), dtype=float)
     for s, ch in plan.choice.items():
@@ -346,8 +351,11 @@ def simulate(team, plan, locks, n, seed, tilt=0.0):
             c = np.array([v[0] for v in plan.C[s]])[nxt]
             terminal = np.array([v[1] for v in plan.C[s]])[nxt]
             active = ~done & (cursor <= i)
-            take = active & (terminal | (played & (x >= c + tilt)))
-            v = np.where(take, np.where(played, x, 0.0), v)
+            threshold = team.lock_at.get(p)
+            score = np.where(played, x, 0.0)
+            enough = played & (x >= c + tilt) if threshold is None else score >= threshold
+            take = active & (terminal | enough)
+            v = np.where(take, score, v)
             done |= take
             cursor = np.where(active, nxt, cursor)
         total += v
@@ -400,12 +408,14 @@ def decide(team, opp, D, n=8000, seed=0, flip_margin=0.01, risk=(0.0,), forbidde
     theirs = opponent_totals(opp, D, n, seed + 1)
     locks, cont = set(), {}
     lockable = set(team.pending) - set(forbidden_locks)
+    controlled = {s for s, (p, _x, _g) in team.pending.items() if p in team.lock_at}
+    forced = {s for s in controlled & lockable if team.pending[s][1] >= team.lock_at[team.pending[s][0]]}
     for s in sorted(team.pending, key=lambda s: -team.pending[s][1]):
         x = team.pending[s][1]
         v_pass = make_plan(team, D, locks).value
         v_lock = make_plan(team, D, locks | {s}).value
         cont[s] = v_pass - v_lock
-        if s in lockable and v_lock + x >= v_pass:
+        if s in forced or (s in lockable - controlled and v_lock + x >= v_pass):
             locks.add(s)
 
     def evaluate(lk):
@@ -424,7 +434,7 @@ def decide(team, opp, D, n=8000, seed=0, flip_margin=0.01, risk=(0.0,), forbidde
     alt = {}
     for _ in range(2):
         changed = False
-        for s in sorted(lockable):
+        for s in sorted(lockable - controlled):
             trial = locks ^ {s}
             pw = evaluate(trial)[0]
             alt[s] = pw

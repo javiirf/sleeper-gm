@@ -1,4 +1,4 @@
-/* sleeper-gm phone app: read-only views over the manager's JSON. No framework, no build step. */
+/* sleeper-gm phone app: local views and owner chat over the manager's JSON. No framework, no build step. */
 (function () {
   'use strict';
 
@@ -13,7 +13,8 @@
     open: {},                 // expanded row keys
     pin: null,                // selected lock pin on the win line
     showStatus: false,
-    lastLoad: 0, loading: false
+    chat: null,
+    lastLoad: 0, loading: false, loadRevision: 0
   };
   var HOUR = 3600000, DAY = 86400000;
   var CACHE_MAX_AGE = 7 * DAY;
@@ -111,6 +112,10 @@
     return fetch(url, { cache: 'no-store', headers: { accept: 'application/json' } }).then(function (res) {
       if (res.headers.get('x-gm-offline')) return offline();
       if (res.status === 404 && !demo) { var e = new Error('missing'); e.kind = 'missing'; throw e; }
+      if (res.status === 403) {
+        try { localStorage.removeItem('gm.cache:' + url); } catch (ignored) { /* storage blocked */ }
+        var denied = new Error('Access denied.'); denied.kind = 'denied'; denied.status = 403; throw denied;
+      }
       if (!res.ok) { var c = cacheGet(url); if (c) return { data: c.data, stale: true }; var e2 = new Error('http ' + res.status); e2.kind = 'http'; e2.status = res.status; throw e2; }
       var fromSw = res.headers.get('x-gm-cache');
       var cachedAt = Number(res.headers.get('x-gm-cached-at'));
@@ -125,9 +130,12 @@
   function load() {
     if (S.loading) return;
     S.loading = true;
+    var revision = S.loadRevision;
+    function checkCurrent() { if (revision !== S.loadRevision) { var e = new Error('superseded'); e.kind = 'superseded'; throw e; } }
     var stale = false;
     function mark(r) { if (r && r.stale) stale = true; return r ? r.data : null; }
     getJSON('leagues').then(function (r) {
+      checkCurrent();
       var list = arr(mark(r)).filter(function (l) { return l && l.id != null; });
       if (!list.length && !S.demo && !S.fallback) { var e = new Error('missing'); e.kind = 'missing'; throw e; }
       S.leagues = list;
@@ -137,6 +145,7 @@
       S.league = pick ? String(pick.id) : null;
       return getJSON('now', S.league ? { league: S.league } : null);
     }).then(function (r) {
+      checkCurrent();
       var now = mark(r);
       if (!now || typeof now !== 'object') { var e = new Error('missing'); e.kind = 'missing'; throw e; }
       S.now = now;
@@ -144,25 +153,29 @@
       var p = { league: S.league || obj(now.league).id || '' };
       var pr = wk != null ? { league: p.league, week: wk } : p;
       return Promise.all([
-        getJSON('runs', pr).then(mark, function () { return null; }),
-        getJSON('season', p).then(mark, function () { return null; })
+        getJSON('runs', pr).then(mark, function (e) { if (e.status === 403) throw e; return null; }),
+        getJSON('season', p).then(mark, function (e) { if (e.status === 403) throw e; return null; })
       ]);
     }).then(function (rs) {
+      checkCurrent();
       var isObj = function (x) { return x && typeof x === 'object' && !Array.isArray(x); };
       if (rs[0] != null) S.runs = arr(rs[0]).filter(isObj);
       if (rs[1] != null) S.season = arr(rs[1]).filter(isObj);
       S.error = null;
       S.staleFrom = stale ? (num(obj(S.now).t) || Date.now()) : null;
     }).catch(function (e) {
+      if (revision !== S.loadRevision) return 'superseded';
+      if (e && e.status === 403) { S.now = null; S.runs = []; S.season = []; S.chat = null; }
       if (e && e.kind === 'missing' && !S.demo && !S.fallback) {
         S.fallback = true; S.loading = false; load(); return 'again';
       }
       S.error = (e && e.kind) || 'http';
     }).then(function (again) {
-      if (again === 'again') return;
+      if (again === 'again' || revision !== S.loadRevision) return;
       S.loading = false;
       S.lastLoad = Date.now();
       render();
+      if (currentTab() === 'ask') loadChat();
     });
   }
 
@@ -197,7 +210,7 @@
     var t = num(obj(S.now).t);
     if (S.error && !S.now) {
       bad = true;
-      html = S.error === 'offline'
+      html = S.error === 'denied' ? 'Access denied. Open the app through your authorized private connection.' : S.error === 'offline'
         ? "Couldn't reach the manager, and this phone has no saved update yet. Check that the server is running and you are on its network."
         : "The manager's server answered with an error, and there is no saved update to show. Try again in a minute.";
     } else if (S.error || S.staleFrom) {
@@ -509,6 +522,10 @@
           : f1(sc) + ' beats the ' + f1(worth) + ' his slot is worth, but ' + (behind ? 'from behind it wants a bigger game.' : 'waiting gives a better shot at the win.');
         else reason = f1(sc) + ' scored. His slot is worth ' + f1(worth) + '.';
       } else if (sc != null) reason = f1(sc) + ' scored and can still be locked.';
+      if (num(s.owner_lock_at) != null) {
+        reason = 'Your lock line is ' + f1(s.owner_lock_at) + ' this week. ' +
+          (dec === 'lock' ? f1(sc) + ' reaches it.' : sc < s.owner_lock_at ? f1(sc) + ' is below it.' : 'The current run still cannot lock this game.');
+      }
       if (pausedLock) reason += ' Paused, so nothing was sent.';
       if (n && n.tip) {
         var left = n.tip - clock();
@@ -522,7 +539,8 @@
       if (sc != null) bar.fill = sc;
       call = '<span class="call playing"><span class="big"><i class="live-dot" aria-hidden="true"></i>' + (sc != null ? esc(f1(sc)) : 'Playing') + '</span>' +
         (sc != null ? '<span class="sub">Playing now</span>' : '') + '</span>';
-      if (worth != null) reason = esc('Worth locking if he tops ' + f1(worth) + '.');
+      if (num(s.owner_lock_at) != null) reason = esc('Your lock line is ' + f1(s.owner_lock_at) + ' once this game finishes.');
+      else if (worth != null) reason = esc('Worth locking if he tops ' + f1(worth) + '.');
     } else if (st === 'open') {
       bar.proj = proj; bar.tick = worth;
       call = n ? '<span class="call next"><span class="big">' + esc(n.short) + '</span>' + (n.tip ? '<span class="sub">' + esc(tm(n.tip)) + '</span>' : '') + '</span>'
@@ -534,6 +552,7 @@
       reason = 'Scores 0 unless someone with a game left goes here.';
       if (worth != null) extra.push(['Worth filling', f1(worth) + ' expected']);
     }
+    if (num(s.owner_lock_at) != null) extra.push(['Your lock line this week', f1(s.owner_lock_at)]);
     var inner = '<span class="pos">' + slot + '</span>' + who + call + barHtml(bar, scale) +
       (reason ? '<span class="reason' + (st === 'empty' || st === 'open' ? ' quiet' : '') + '">' + reason + '</span>' : '');
     var chat = st === 'pending' ? crowdLine(s.crowd) : '';
@@ -593,6 +612,7 @@
     var scale = Math.max.apply(null, vals) * 1.08;
     var ctx = { paused: now.live === false, pwin: num(now.p_win) };
     var h = [];
+    if (arr(now.directives).length) h.push('<a class="board-directives" href="#ask">' + esc(arr(now.directives).map(function (d) { return d.label || d.text || d.kind; }).join(' · ')) + '</a>');
     h.push('<section class="hero"><div class="winline" id="winline"></div><p class="caption" id="caption"></p>');
     h.push('<div class="score" role="table" aria-label="Points">' +
       '<span role="columnheader"></span><span class="h" role="columnheader">Now</span><span class="h" role="columnheader">Projected</span>' +
@@ -902,17 +922,223 @@
     el.innerHTML = g.join('');
   }
 
+  /* ---------- ask ---------- */
+  function chatText(text) {
+    function inline(s) { return esc(s).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>'); }
+    var out = [], paragraph = [], list = [];
+    function flush() {
+      if (paragraph.length) { out.push('<p>' + inline(paragraph.join('\n')) + '</p>'); paragraph = []; }
+      if (list.length) { out.push('<ul>' + list.map(function (s) { return '<li>' + inline(s) + '</li>'; }).join('') + '</ul>'); list = []; }
+    }
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) { flush(); return; }
+      if (/^- /.test(line)) { if (paragraph.length) flush(); list.push(line.slice(2)); }
+      else { if (list.length) flush(); paragraph.push(line); }
+    });
+    flush();
+    return out.join('');
+  }
+
+  function starterQuestions(now) {
+    now = obj(now);
+    if (!now.me) return [];
+    var slots = arr(now.me.slots), first = '', looks = [];
+    slots.some(function (s) {
+      if (s.state === 'locked') return false;
+      var names = {};
+      looks = arr(obj(s.plan).looks).filter(function (l) {
+        if (!l.name || names[l.name]) return false;
+        names[l.name] = true; return true;
+      });
+      return looks.length >= 2;
+    });
+    if (looks.length >= 2) first = 'Why ' + String(looks[0].name).split(' ').slice(-1)[0] + ' before ' + String(looks[1].name).split(' ').slice(-1)[0] + '?';
+    else {
+      var pending = slots.filter(function (s) { return s.state === 'pending' && s.player; })[0];
+      var player = pending ? pending.player : obj(slots.filter(function (s) { return s.player && s.state !== 'locked'; })[0]).player;
+      first = pending ? 'Why ' + (pending.decision === 'lock' ? 'lock ' : 'wait on ') + pending.player.name + ' at ' + f1(pending.score) + '?'
+        : player ? 'What is the plan for ' + player.name + '?' : 'What do our ' + slots.length + ' starting slots need?';
+    }
+    var matchup = num(now.p_win) != null ? 'What puts us at ' + pct(now.p_win) + ' to beat ' + (obj(now.opp).name || 'our opponent') + '?'
+      : 'How do we beat ' + (obj(now.opp).name || 'our opponent') + ' this week?';
+    var claim = arr(obj(now.claims).bot)[0];
+    var pickup = claim ? 'Why claim ' + claim.add + (claim.drop ? ' for ' + claim.drop : '') + '?'
+      : 'Would a pickup help with ' + plural(arr(now.days_left).length, 'day') + ' left?';
+    return [first, pickup, matchup];
+  }
+
+  function chatRequest(endpoint, league, body) {
+    var options = {cache: 'no-store', headers: {accept: 'application/json'}};
+    if (body != null) {
+      options.method = 'POST'; options.headers['content-type'] = 'application/json'; options.body = JSON.stringify(body);
+    }
+    return fetch('api/' + endpoint + '?league=' + encodeURIComponent(league), options).then(function (res) {
+      return res.json().catch(function () { throw new Error('The server returned an unreadable reply. Reload the app and try again.'); }).then(function (data) {
+        if (!res.ok) throw new Error(data.error || 'The server could not finish that request. Try again.');
+        return data;
+      });
+    }, function () { throw new Error('Could not reach the GM. Check your connection, then try again.'); });
+  }
+
+  function chatState() {
+    if (!S.chat || S.chat.league !== S.league) {
+      S.chat = {league: S.league, history: [], directives: arr(obj(S.now).directives), enabled: null,
+        busy: false, loading: false, loaded: false, draft: '', error: '', pending: null, revision: 0};
+      $('p-ask').innerHTML = '';
+    }
+    return S.chat;
+  }
+
+  function applyChatView(c, data) {
+    if (Array.isArray(data.history)) c.history = data.history;
+    if (Array.isArray(data.directives)) c.directives = data.directives;
+    if (typeof data.enabled === 'boolean') c.enabled = data.enabled;
+    if (data.error) c.error = data.error;
+    if (S.chat === c && S.now) {
+      S.now.directives = c.directives;
+      if (typeof data.live === 'boolean') S.now.live = data.live;
+      renderHeader(); renderBoard();
+    }
+  }
+
+  function loadChat() {
+    var c = chatState();
+    if (c.busy || c.loading || !c.league) return;
+    if (S.demo || S.fallback) {
+      c.enabled = false; c.loaded = true;
+      c.error = 'Chat needs the manager server. Open the app from sleeper-gm web.';
+      renderAsk(); return;
+    }
+    var revision = c.revision;
+    c.loading = true; renderAsk();
+    return chatRequest('chat', c.league).then(function (data) {
+      if (c.revision !== revision) return;
+      applyChatView(c, data); c.error = data.error || ''; c.loaded = true;
+    }).catch(function (e) { if (c.revision === revision) c.error = e.message; }).then(function () {
+      c.loading = false; if (S.chat === c) renderAsk();
+    });
+  }
+
+  function undoButton(id) {
+    return '<button type="button" class="text-btn" data-undo="' + esc(id) + '"' + (obj(S.chat).busy ? ' disabled' : '') + '>Undo</button>';
+  }
+
+  function chatActions(actions, refused) {
+    return arr(actions).map(function (a) {
+      var active = arr(obj(S.chat).directives).some(function (d) { return d.id === a.id; });
+      return '<div class="chat-action">Saved: ' + esc(a.label || a.kind) + (active ? undoButton(a.id) : '') + '</div>';
+    }).join('') + arr(refused).map(function (a) {
+      return '<div class="chat-refusal">Not saved: ' + esc(a.reason || 'That instruction is not supported.') + '</div>';
+    }).join('');
+  }
+
+  function renderAsk(scroll) {
+    var c = chatState(), el = $('p-ask');
+    if (!$('chat-messages')) {
+      el.innerHTML = '<div class="ask-heading"><h2>Ask your GM</h2><button type="button" id="chat-clear" class="text-btn">Clear chat</button></div>' +
+        '<div id="chat-directives" class="chat-directives"></div>' +
+        '<div id="chat-messages" class="chat-messages" role="log" aria-label="Conversation with your GM" aria-live="polite" aria-relevant="additions text" tabindex="0"></div>' +
+        '<div id="chat-error" class="chat-error" role="alert" hidden></div>' +
+        '<form id="chat-form" class="chat-composer"><label class="sr" for="chat-input">Message your GM</label>' +
+        '<textarea id="chat-input" rows="1" maxlength="1000" placeholder="Ask about your team..." enterkeyhint="send"></textarea>' +
+        '<button type="submit" id="chat-send" aria-label="Send message">Send <span aria-hidden="true">↑</span></button></form>';
+      $('chat-form').addEventListener('submit', function (e) { e.preventDefault(); sendChat(); });
+      $('chat-input').addEventListener('keydown', chatKeydown);
+      $('chat-input').addEventListener('input', function () {
+        c.draft = this.value; resizeComposer(); $('chat-send').disabled = c.busy || !this.value.trim();
+      });
+    }
+    var directives = $('chat-directives');
+    directives.hidden = !c.directives.length;
+    directives.innerHTML = c.directives.length ? '<h3>Standing instructions</h3>' + c.directives.map(function (d) {
+      return '<div class="chat-directive"><span>' + esc(d.label || d.text || d.kind) + '</span>' + undoButton(d.id) + '</div>';
+    }).join('') : '';
+    var messages = $('chat-messages'), nearEnd = messages.scrollHeight - messages.scrollTop - messages.clientHeight < 60;
+    var html = c.history.map(function (row) {
+      return '<article class="chat-turn ' + (row.role === 'user' ? 'chat-owner' : 'chat-gm') + '"><div class="chat-speaker">' +
+        (row.role === 'user' ? 'You' : 'GM') + '</div><div class="chat-copy">' + chatText(row.text) + '</div>' +
+        chatActions(row.actions, row.refused) + '</article>';
+    }).join('');
+    if (!c.history.length && !c.pending) {
+      html = '<div class="ask-empty"><h3>Let\'s talk about your team.</h3><p>The calls, the next move, what you want to keep.</p>' +
+        '<div class="starter-questions">' + starterQuestions(S.now).map(function (question) {
+          return '<button type="button" data-question="' + esc(question) + '"' + (c.enabled !== true || c.busy ? ' disabled' : '') + '>' + esc(question) + '<span aria-hidden="true">↗</span></button>';
+        }).join('') + '</div></div>';
+    }
+    if (c.pending) html += '<article class="chat-turn chat-owner"><div class="chat-speaker">You</div><div class="chat-copy">' + chatText(c.pending) + '</div></article>';
+    if (c.busy && c.pending) html += '<p class="chat-thinking" role="status"><i class="live-dot" aria-hidden="true"></i>GM is thinking...</p>';
+    else if (c.loading && !c.loaded) html += '<p class="chat-thinking" role="status">Opening your conversation...</p>';
+    if (messages.innerHTML !== html) messages.innerHTML = html;
+    $('chat-error').hidden = !c.error;
+    $('chat-error').textContent = c.error;
+    $('chat-clear').disabled = c.busy || !c.history.length;
+    $('chat-input').disabled = c.enabled !== true;
+    if ($('chat-input').value !== c.draft) $('chat-input').value = c.draft;
+    $('chat-send').disabled = c.busy || c.enabled !== true || !c.draft.trim();
+    resizeComposer();
+    if (scroll || nearEnd) messages.scrollTop = messages.scrollHeight;
+  }
+
+  function resizeComposer() {
+    var input = $('chat-input');
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = Math.min(96, input.scrollHeight) + 'px';
+    input.style.overflowY = input.scrollHeight > 96 ? 'auto' : 'hidden';
+  }
+
+  function chatKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendChat(); }
+  }
+
+  function sendChat(question) {
+    var c = chatState(), message = typeof question === 'string' ? question : c.draft;
+    message = message.trim();
+    if (c.busy || c.enabled !== true || !message) return;
+    if (message.length > 1000) { c.error = 'Keep your message to 1,000 characters, then send it again.'; renderAsk(); return; }
+    c.revision++;
+    c.draft = message; c.pending = message; c.busy = true; c.error = ''; renderAsk(true);
+    return chatRequest('chat', c.league, {message: message}).then(function (data) {
+      applyChatView(c, data); if (c.draft === message) c.draft = '';
+    }).catch(function (e) { c.error = e.message; }).then(function () {
+      c.busy = false; c.pending = null;
+      if (S.chat === c) { renderAsk(true); }
+    });
+  }
+
+  function changeChat(endpoint, payload) {
+    var c = chatState();
+    if (c.busy) return;
+    c.revision++;
+    c.busy = true; c.error = ''; renderAsk();
+    return chatRequest(endpoint, c.league, payload).then(function (data) {
+      applyChatView(c, data);
+    }).catch(function (e) { c.error = e.message; }).then(function () {
+      c.busy = false; if (S.chat === c) renderAsk();
+    });
+  }
+
+  function askViewport() {
+    var viewport = window.visualViewport;
+    if (!viewport) return;
+    document.documentElement.style.setProperty('--ask-height', viewport.height + 'px');
+    document.documentElement.style.setProperty('--ask-top', viewport.offsetTop + 'px');
+    document.documentElement.style.setProperty('--keyboard-lift', Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) + 'px');
+  }
+
   /* ---------- shell ---------- */
   function currentTab() {
     var t = (location.hash || '').replace('#', '');
-    return t === 'moves' || t === 'season' ? t : 'board';
+    return t === 'moves' || t === 'season' || t === 'ask' ? t : 'board';
   }
   function showTab() {
     var t = currentTab();
-    ['board', 'moves', 'season'].forEach(function (k) { $('p-' + k).hidden = k !== t; });
+    ['board', 'moves', 'season', 'ask'].forEach(function (k) { $('p-' + k).hidden = k !== t; });
     document.querySelectorAll('.tab').forEach(function (a) {
       if (a.getAttribute('data-tab') === t) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
+    document.body.classList.toggle('ask-view', t === 'ask');
+    if (t === 'ask') { renderAsk(); askViewport(); }
     if (t === 'board') drawWin();
     if (t === 'season') drawCalib();
   }
@@ -943,6 +1169,11 @@
   }
 
   document.addEventListener('click', function (e) {
+    var question = e.target.closest && e.target.closest('[data-question]');
+    if (question) { sendChat(question.getAttribute('data-question')); return; }
+    var undo = e.target.closest && e.target.closest('[data-undo]');
+    if (undo) { changeChat('directives', {id: undo.getAttribute('data-undo')}); return; }
+    if (e.target.closest && e.target.closest('#chat-clear')) { changeChat('chat/clear', {}); return; }
     var tg = e.target.closest && e.target.closest('[data-toggle]');
     if (tg) {
       var key = tg.getAttribute('data-toggle');
@@ -983,10 +1214,14 @@
       var u = new URL(location.href); u.searchParams.set('league', S.league); history.replaceState(null, '', u);
       qs.set('league', S.league);
       S.now = null; S.runs = []; S.season = []; S.open = {}; S.pin = null;
-      load();
+      S.chat = null; S.loadRevision++; S.loading = false; render(); load();
     }
   });
-  window.addEventListener('hashchange', function () { showTab(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', function () { showTab(); window.scrollTo(0, 0); if (currentTab() === 'ask') loadChat(); });
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', askViewport);
+    visualViewport.addEventListener('scroll', askViewport);
+  }
   var rz = null, lastW = 0;
   function redrawIfWider() {
     clearTimeout(rz);

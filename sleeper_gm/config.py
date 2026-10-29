@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
 from pathlib import Path
 
 
@@ -18,6 +20,7 @@ STATE_DIR = Path(os.environ.get("SLEEPER_GM_STATE_DIR") or _xdg("XDG_STATE_HOME"
 CACHE_DIR = Path(os.environ.get("SLEEPER_GM_CACHE_DIR") or _xdg("XDG_CACHE_HOME", ".cache") / "sleeper-gm")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 TOKEN_FILE = CONFIG_DIR / "token"
+_live_lock = threading.Lock()
 
 DEFAULTS = {
     "leagues": "auto",              # "auto" = every in-season Lock-In NBA league you own, or a list of league ids
@@ -30,6 +33,7 @@ DEFAULTS = {
     "protect_ros": 30.0,            # never drop anyone worth this many fantasy points per game
     "brief_at_et": "09:30",         # first run after this (US Eastern) each day sends the daily brief
     "web_url": None,                # your private link to the phone app, added to the brief
+    "chat": {"command": None, "timeout": 90, "history": 24, "per_hour": 30},
     "notify": {
         "command": None,            # a command that gets the message on stdin, e.g. a script of yours
         "telegram_chat_id": None,   # with SLEEPER_GM_TELEGRAM_TOKEN in the environment
@@ -43,14 +47,34 @@ def load():
     if CONFIG_FILE.exists():
         user = json.loads(CONFIG_FILE.read_text())
         notify = {**cfg["notify"], **(user.get("notify") or {})}
+        chat = {**cfg["chat"], **(user.get("chat") or {})}
         cfg.update(user)
         cfg["notify"] = notify
+        cfg["chat"] = chat
     return cfg
 
 
 def save(cfg):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(cfg, indent=2) + "\n")
+    with tempfile.NamedTemporaryFile(mode="w", dir=CONFIG_DIR, prefix="config-", delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            stream.write(json.dumps(cfg, indent=2) + "\n")
+            stream.flush()
+            os.replace(temporary, CONFIG_FILE)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def set_live(live):
+    """The CLI and owner chat share one persisted live switch."""
+    if not isinstance(live, bool):
+        raise ValueError("live must be a boolean")
+    with _live_lock:
+        cfg = load()
+        cfg["live"] = live
+        save(cfg)
+    return live
 
 
 def league_state(league_id):

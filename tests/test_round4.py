@@ -326,7 +326,7 @@ def test_team_transition_cutoff_survives_dictionary_and_prunes(tmp_path, monkeyp
 
 
 @pytest.mark.parametrize("age,usable", [(0, True), (6 * 86400_000, True), (7 * 86400_000, True), (7 * 86400_000 + 1, False), (None, False)])
-def test_service_worker_expires_cached_api_json(age, usable):
+def test_service_worker_expires_cached_demo_json(age, usable):
     source = (Path(web.__file__).with_suffix("") / "sw.js").read_text()
     script = """
 const handlers = {}, removed = [];
@@ -340,7 +340,7 @@ const self = {location: {origin: 'https://gm.test'}, addEventListener: (name, cb
 const caches = {open: async () => ({match: async () => hit, delete: async req => removed.push(req.url)})};
 const fetch = async () => { throw new Error('offline'); };
 """.replace("AGE", json.dumps(age)) + source + """
-handlers.fetch({request: new Request('https://gm.test/api/now'), respondWith: p => p.then(async res => {
+handlers.fetch({request: new Request('https://gm.test/demo/now.json'), respondWith: p => p.then(async res => {
   console.log(JSON.stringify({status: res.status, cached: res.headers.get('x-gm-cache'), body: await res.json(), removed}));
 })});
 """
@@ -365,7 +365,7 @@ const caches = {open: async () => ({put: async (req, res) => {
 }})};
 const fetch = async () => new Response('{"value":42}', {headers: {'cache-control': 'no-store'}});
 """.replace("CACHE_FAILS", json.dumps(cache_fails)) + source + """
-handlers.fetch({request: new Request('https://gm.test/api/now'), respondWith: p => p.then(async res => {
+handlers.fetch({request: new Request('https://gm.test/demo/now.json'), respondWith: p => p.then(async res => {
   console.log(JSON.stringify({status: res.status, body: await res.json(), saved}));
 })});
 """

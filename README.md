@@ -73,8 +73,10 @@ The opponent retains one look per day.
 Later looks require passing the earlier scores and keeping the slot open. `now.json` adds
 `plan: {looks, expected_value}` to open slot rows and `role` to bench players, preserving existing
 fields. Each look has `id`, `name`, Eastern `date`, `tip_ms`, `lock_above`, `terminal` and
-`handoff_p`. The bar is the normal branch's continuation value, not a promise to lock regardless
-of matchup context; `terminal: true` means the final draw counts even below the bar. Bench roles
+`handoff_p`. By default, the bar is the normal branch's continuation value, not a promise to lock
+regardless of matchup context. An owner's `lock_at` instruction replaces the nonterminal bar for
+that player this week and is used when valuing future looks. `terminal: true` means the final draw
+counts even below the bar. Bench roles
 identify planned games or reserves without promising an injury substitution the policy did not model.
 
 ## Safety rails
@@ -157,7 +159,7 @@ reads the message on stdin.
 ## The phone app
 
 ```
-sleeper-gm web            # http://127.0.0.1:8770, read-only, no Sleeper access of its own
+sleeper-gm web            # http://127.0.0.1:8770, local state and optional owner chat
 sleeper-gm web --demo     # the demo league in the screenshots
 ```
 
@@ -165,7 +167,9 @@ It binds to localhost and shows your league, so keep it private. With Tailscale:
 `tailscale serve --bg --https=8448 http://127.0.0.1:8770`, open it on your phone and use
 Add to Home Screen. Board: this week's win-chance line and every slot's call. Moves: every lock,
 pass and pickup with the reason, plus pending claims and their last results. Season: results, share of the best possible lineup, and how its
-win chances held up.
+win chances held up. Ask: discuss the actual saved plan with your GM and save keep, avoid or
+weekly lock instructions. Chat starts off; [chat setup and limits](docs/chat.md) explains how to
+connect a local model command with tools disabled. Chat can also pause or resume the shared live switch.
 
 ## MCP server
 
@@ -201,6 +205,7 @@ Claude Desktop: add `{"command": "sleeper-gm", "args": ["mcp"]}` under `mcpServe
 | `brief_at_et` | `"09:30"` | daily brief time, US Eastern |
 | `web_url` | `null` | your private link to the phone app, added to each brief |
 | `notify` | | `command`, `telegram_chat_id`, `ntfy_topic` |
+| `chat` | command `null` | `command`, `timeout` (90s), `history` (24), `per_hour` (30), optional Tailscale `allow` list; [setup](docs/chat.md) |
 
 ## Limits
 

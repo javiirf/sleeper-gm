@@ -21,7 +21,7 @@ import time
 import traceback
 from datetime import datetime
 
-from . import api, auth, claims, config, notify, week
+from . import api, auth, claims, config, directives, notify, week
 
 DUE_AHEAD_MS = 3 * 3600 * 1000
 
@@ -112,7 +112,13 @@ def due(cfg, now_ms):
                      if "leagues" in rs else rs.get("brief_date") != _today())
     if (now_et.hour, now_et.minute) >= (hh, mm) and missing_brief:
         return True, True
-    for lid, saved in (rs.get("rosters") or {}).items():
+    rosters = rs.get("rosters") or {}
+    known = {str(lid) for lid in rs.get("leagues") or []} | set(rosters)
+    for lid in known:
+        saved = rosters.get(lid, {})
+        if directives.fingerprint(config.STATE_DIR / lid) != saved.get("directives", ""):
+            return True, False
+    for lid, saved in rosters.items():
         state = claims.read_state(config.STATE_DIR / lid)
         previous, following = claims.processing_bounds(now_ms, state)
         last = saved.get("full_ms", 0)
@@ -177,7 +183,8 @@ def cmd_run(args):
             observed = getattr(ctx, "roster_for_gate", None)
             if observed is not None:
                 rs.setdefault("rosters", {})[str(lid)] = {"rid": rid, "hash": roster_hash(observed),
-                                                         "full_ms": now_ms}
+                                                         "full_ms": now_ms,
+                                                         "directives": getattr(ctx, "directives_for_gate", "")}
             results.append({"league": name, "p_win": snap["p_win"], "acted": snap["acted"]})
             if brief:
                 if snap["notified"]:
@@ -211,7 +218,7 @@ def cmd_run(args):
 
 
 def cmd_status(args):
-    from .cycle import Ctx, bench_role, load, plan_details
+    from .cycle import Ctx, _claims_check, bench_role, load, plan_details
     from .policy import decide
     cfg = config.load()
     st = store()
@@ -221,8 +228,14 @@ def cmd_status(args):
             continue
         ctx = Ctx(cfg, lid, rid, False, st)
         wk, me, opp = load(ctx)
-        dec = decide(me, opp, len(wk.days)) if wk.days else None
+        pending_drops = _claims_check(ctx, wk, me)
+        excluded = {s for s, (p, _x, _g) in me.pending.items() if p in pending_drops}
+        dec = decide(me, opp, len(wk.days), forbidden_locks=excluded) if wk.days else None
         print(f"\n{name} (week {wk.week}), days left {wk.days}")
+        for directive in getattr(wk, "directives", []):
+            print(f"  Instruction: {directive['label']}")
+        for warning in ctx.acted:
+            print(f"  {warning}")
         if not dec:
             continue
         print(f"win chance {dec.p_win:.1%}   you ~{dec.mean_total:.1f}   opponent ~{dec.opp_mean:.1f}")
@@ -290,10 +303,8 @@ def main(argv=None):
     elif a.cmd == "run":
         cmd_run(a)
     elif a.cmd in ("on", "off"):
-        cfg = config.load()
-        cfg["live"] = a.cmd == "on"
-        config.save(cfg)
-        print("live: scheduled runs will make changes" if cfg["live"] else "off: runs only report what they would do")
+        live = config.set_live(a.cmd == "on")
+        print("live: scheduled runs will make changes" if live else "off: runs only report what they would do")
     elif a.cmd == "schedule":
         from . import schedule
         print(getattr(schedule, a.action)(cron=a.cron))

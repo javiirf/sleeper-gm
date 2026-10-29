@@ -18,11 +18,12 @@ import contextlib
 import json
 import os
 import sqlite3
+import tempfile
 import time
 import uuid
 from datetime import datetime
 
-from . import api, claims, config, crowd, moves, notify, week
+from . import api, claims, config, crowd, directives, moves, notify, week
 from .policy import HANDOFF_P, RISK, decide, fits, lineup_today, respecify_locks
 
 URGENT_MS = 40 * 60 * 1000
@@ -185,11 +186,17 @@ def load(ctx):
         return Model(_StoreView(ctx.store, wk.players), wk.scoring, wk.now_ms)
 
     wk = week.load(ctx.store, factory, ctx.league_id, ctx.rid, state_dir=str(ctx.dir))
+    wk.directives = directives.load(ctx.dir, season=wk.season, week=wk.week, now_ms=wk.now_ms)
     me = week.build_team(wk, wk.my_rid, week.snapshots(wk))
+    me.lock_at = {r["player_id"]: r["points"] for r in wk.directives if r["kind"] == "lock_at"}
     opp = week.build_team(wk, wk.opp_rid)
     cfg = ctx.cfg
     by_ros = sorted(set(wk.rosters[ctx.rid].get("players") or []), key=lambda p: -moves.ros(wk, p))
     wk.protected = set(by_ros[:cfg["protect_top"]]) | {p for p in by_ros if moves.ros(wk, p) >= cfg["protect_ros"]}
+    # Local chat validates ids without a new network endpoint or private roster details.
+    with tempfile.NamedTemporaryFile(mode="w", dir=ctx.dir, prefix="players-", suffix=".tmp", delete=False) as fh:
+        fh.write(api.redact(json.dumps({p: {"name": wk.name(p)} for p in wk.players})))
+    os.replace(fh.name, ctx.dir / "players.json")
     return wk, me, opp
 
 
@@ -346,7 +353,10 @@ def _locks(ctx, wk, me, opp, pending_drops=()):
         new, _ = respecify_locks(me, new, dec.locks)
         lock_slots = dec.locks
     else:
-        new, lock_slots = list(me.starters), sorted(set(me.pending) - excluded)
+        thresholds = getattr(me, "lock_at", {})
+        lock_slots = sorted(s for s, (p, x, _g) in me.pending.items()
+                            if s not in excluded and (p not in thresholds or x >= thresholds[p]))
+        new = list(me.starters)
     if ctx.live and not _refresh_write_guards(ctx, wk):
         return dec, list(me.starters), {}
     now = lambda: int(time.time() * 1000)
@@ -471,6 +481,14 @@ def _claims_check(ctx, wk, me):
     for p in sorted(drops):
         if p in me.starters or p in me.lock_games or p in wk.protected:
             ctx.acted.append(f"NEEDS YOU: your pending waiver claim drops {wk.name(p)}, who is starting, locked or one of your best players")
+    bot = claims.read_state(ctx.dir).get("bot", {})
+    for row in ctx.pending_claims:
+        if str(row.get("transaction_id")) in bot:
+            continue
+        for field, kind, verb in (("drops", "keep", "drops"), ("adds", "avoid", "adds")):
+            conflicts = set(claims.owned_players(row, field, ctx.rid)) & moves.directed_players(wk, kind)
+            for p in sorted(conflicts):
+                ctx.acted.append(f"NEEDS YOU: your pending waiver claim {verb} {wk.name(p)}, conflicting with your {kind} instruction; edit the claim in Sleeper")
     return drops
 
 
@@ -488,8 +506,9 @@ def plan_details(wk, team, dec, starters=None):
         for i, p, d, tip in plan.looks(s):
             normal, delayed = plan.after[s][i]
             c, terminal = plan.C[s][normal]
+            bar = getattr(team, "lock_at", {}).get(p, c) if not terminal else c
             looks.append({"id": p, "name": wk.name(p), "date": wk.days[d], "tip_ms": tip,
-                          "lock_above": round(c, 1), "terminal": terminal,
+                          "lock_above": round(bar, 1), "terminal": terminal,
                           "handoff_p": HANDOFF_P if normal != delayed else 1.0})
         out[s] = {"looks": looks, "expected_value": round(plan.C[s][0][0], 1)}
     if starters is not None:
@@ -570,6 +589,8 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
         for s, slot in enumerate(team.slots):
             p = starters[s] if mine else team.starters[s]
             row = {"slot": slot, "player": pinfo(p, team) if p != "0" else None}
+            if mine and p in getattr(team, "lock_at", {}):
+                row["owner_lock_at"] = team.lock_at[p]
             info = dict(by.get(p, {}))
             if mine and p in done:
                 info.update(state="locked", just_locked=True)
@@ -607,6 +628,7 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
                 "proj": round(dec.opp_mean, 1) if dec else None, "slots": slots(opp, False)},
         "acted": ctx.acted,
         "claims": claims.view(ctx, wk),
+        "directives": getattr(wk, "directives", []),
     }
     pending = {p for p, _x, _g in me.pending.values()}
     rows = [r for r in snap["me"]["slots"] if r["state"] == "pending" and r["player"]["id"] in pending]
@@ -633,11 +655,12 @@ def preview(ctx, with_moves=True):
     """Read-only: what a run would do now. Writes nothing to Sleeper or to now.json."""
     wk, me, opp = load(ctx)
     ir = moves.ir_fix(wk, me, wk.rosters[ctx.rid])
-    dec = decide(me, opp, len(wk.days), risk=RISK) if wk.days else None
+    pending_drops = _claims_check(ctx, wk, me)
+    excluded = {s for s, (p, _x, _g) in me.pending.items() if p in pending_drops}
+    dec = decide(me, opp, len(wk.days), risk=RISK, forbidden_locks=excluded) if wk.days else None
     starters = list(me.starters)
     if dec:
         starters, _ = respecify_locks(me, lineup_today(me, dec, wk.has_game_today), dec.locks)
-    _claims_check(ctx, wk, me)
     snap = snapshot(ctx, wk, me, opp, dec, starters, {}, write=False)
     snap["would"] = {
         "lock": [wk.name(me.pending[s][0]) for s in (dec.locks if dec else [])],
@@ -664,6 +687,8 @@ def run_league(ctx, brief=False):
 
 
 def _run(ctx, brief):
+    # Save the starting revision: an instruction saved while this run works stays due.
+    ctx.directives_for_gate = directives.fingerprint(ctx.dir)
     t0 = time.time()
     ctx.__dict__.pop("_crowd_signals", None)
     ctx.week_rolled_over = False

@@ -124,7 +124,8 @@ def plan(wk, me, opp, roster, owner, process_ms, limit, existing=()):
     droppable = sorted((p for p in active if p in me.positions and p not in reserved_drops
                         and not moves.untouchable(wk, me, p)), key=lambda p: moves.keep_value(wk, p))
     drops = [None] if len(active) < max_active else droppable[:3]
-    candidates = [p for p in moves.free_agents(wk, limit=None) if p not in reserved_adds]
+    excluded_adds = reserved_adds | moves.directed_players(wk, "avoid")
+    candidates = [p for p in moves.free_agents(wk, limit=None) if p not in excluded_adds]
     D = len(wk.days)
     screened = sorted(candidates[:60], key=lambda p: make_plan(
         moves.with_player(wk, team, p, after_ms=process_ms), D).value, reverse=True)

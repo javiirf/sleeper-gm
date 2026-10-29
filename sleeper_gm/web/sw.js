@@ -1,6 +1,6 @@
-/* Caches the app shell, and keeps the last good JSON so the board still opens offline. */
-var SHELL = 'gm-shell-v3';
-var DATA = 'gm-data-v1';
+/* Caches the app shell, and keeps demo JSON offline. Private API requests always go to the server. */
+var SHELL = 'gm-shell-v4';
+var DATA = 'gm-data-v2';
 var FONTS = 'gm-fonts-v1';
 var DATA_MAX_AGE = 7 * 86400000;
 var FILES = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest',
@@ -27,6 +27,7 @@ self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
+  if (/\/api\//.test(url.pathname)) return;
 
   if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
     e.respondWith(caches.open(FONTS).then(function (c) {
@@ -39,7 +40,7 @@ self.addEventListener('fetch', function (e) {
   }
   if (url.origin !== self.location.origin) return;
 
-  var isData = /\/api\//.test(url.pathname) || /\/demo\/[^/]+\.json$/.test(url.pathname);
+  var isData = /\/demo\/[^/]+\.json$/.test(url.pathname);
   if (isData) {
     // network first; on failure hand back the last good copy, marked so the page can say it is old
     e.respondWith(fetch(req).then(function (res) {

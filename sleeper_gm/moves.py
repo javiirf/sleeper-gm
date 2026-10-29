@@ -70,7 +70,13 @@ def busy(team, pid):
 def untouchable(wk, team, pid):
     """Never drop: anyone busy, and the core (top `protect_top` on the roster, anyone at or
     above `protect_ros` per game, injured stars included)."""
-    return busy(team, pid) or pid in wk.protected
+    return busy(team, pid) or pid in wk.protected or pid in directed_players(wk, "keep")
+
+
+def directed_players(wk, kind):
+    """Player restrictions already filtered for the current run by cycle.load."""
+    return {r["player_id"] for r in getattr(wk, "directives", [])
+            if r.get("kind") == kind and r.get("player_id")}
 
 
 def ir_fix(wk, team, roster):
@@ -104,7 +110,7 @@ def ir_fix(wk, team, roster):
         if d is not None and keep_value(wk, d) < keep_value(wk, p):
             return Move("drop_then_reserve", drop=d, reserve=[r for r in reserve if r != p],
                         why=f"{wk.name(p)} is healthy on IR and the roster is full: dropping {wk.name(d)} ({ros(wk, d):.1f}/g) to activate him")
-        if p not in wk.protected:
+        if not untouchable(wk, team, p):
             return Move("drop_then_reserve", drop=p, reserve=[r for r in reserve if r != p],
                         why=f"{wk.name(p)} is healthy on IR, the roster is full and he is the weakest option: dropping him")
         return Move("needs_you", why=f"{wk.name(p)} is healthy on IR, the roster is full and nobody is safe to drop")
@@ -181,7 +187,8 @@ def best_move(wk, team, opp, roster, exclude=(), reserved=0):
     max_active, _ = roster_limits(wk.league)
     reserve = set(roster.get("reserve") or [])
     active = [p for p in roster.get("players") or [] if p not in reserve]
-    cands = [a for a in free_agents(wk) if a not in set(exclude)]
+    excluded = set(exclude) | directed_players(wk, "avoid")
+    cands = [a for a in free_agents(wk) if a not in excluded]
     if not cands:
         return None
     base_ev = make_plan(team, D).value
