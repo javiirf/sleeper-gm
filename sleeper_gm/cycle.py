@@ -19,6 +19,7 @@ import json
 import os
 import sqlite3
 import time
+import uuid
 from datetime import datetime
 
 from . import api, config, crowd, moves, notify, week
@@ -155,17 +156,19 @@ class Ctx:
                     if alive and time.time() - created <= 2 * 3600:
                         raise Busy("another sleeper-gm run is working on this league right now")
                     path.unlink()
-            owned = os.fstat(fd)
+            token = uuid.uuid4().hex  # ownership is the token, not the inode (filesystems reuse inodes)
             with os.fdopen(fd, "w") as fh:
-                json.dump({"pid": os.getpid(), "t": time.time()}, fh)
+                json.dump({"pid": os.getpid(), "t": time.time(), "token": token}, fh)
         try:
             yield
         finally:
             with self._lockfile_guard():
                 try:
-                    if os.path.samestat(owned, path.stat()):
+                    with open(path) as fh:
+                        mine = json.load(fh).get("token") == token
+                    if mine:
                         path.unlink()
-                except FileNotFoundError:
+                except (FileNotFoundError, ValueError, AttributeError):
                     pass
 
 

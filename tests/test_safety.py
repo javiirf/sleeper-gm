@@ -192,7 +192,7 @@ def test_fallback_lock_requires_dead_pid_or_two_hours(home, monkeypatch, age, al
     if stale:
         with ctx.exclusive():
             data = json.loads(path.read_text())
-            assert data == {"pid": os.getpid(), "t": 10000}
+            assert {k: data[k] for k in ("pid", "t")} == {"pid": os.getpid(), "t": 10000} and len(data.get("token", "")) == 32
         assert not path.exists()
     else:
         with pytest.raises(cycle.Busy):
