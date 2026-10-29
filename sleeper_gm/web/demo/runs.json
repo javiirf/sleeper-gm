@@ -1,0 +1,1622 @@
+[
+ {
+  "t": 1796049002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.47,
+  "mean": 262.4,
+  "opp_mean": 263.8,
+  "points": 0.0,
+  "opp_points": 0.0,
+  "decisions": [],
+  "acted": []
+ },
+ {
+  "t": 1796076602.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.47,
+  "mean": 263.0,
+  "opp_mean": 264.4,
+  "points": 0.0,
+  "opp_points": 0.0,
+  "decisions": [],
+  "acted": []
+ },
+ {
+  "t": 1796082002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.46,
+  "mean": 263.1,
+  "opp_mean": 265.1,
+  "points": 0.0,
+  "opp_points": 0.0,
+  "decisions": [],
+  "acted": []
+ },
+ {
+  "t": 1796085602.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.46,
+  "mean": 263.2,
+  "opp_mean": 265.2,
+  "points": 0.2,
+  "opp_points": 0.4,
+  "decisions": [],
+  "acted": []
+ },
+ {
+  "t": 1796087402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.45,
+  "mean": 263.2,
+  "opp_mean": 265.8,
+  "points": 0.9,
+  "opp_points": 1.6,
+  "decisions": [],
+  "acted": []
+ },
+ {
+  "t": 1796091002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.49,
+  "mean": 263.3,
+  "opp_mean": 263.5,
+  "points": 2.7,
+  "opp_points": 4.3,
+  "decisions": [],
+  "acted": []
+ },
+ {
+  "t": 1796096402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.53,
+  "mean": 263.4,
+  "opp_mean": 261.2,
+  "points": 5.6,
+  "opp_points": 8.4,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Pascal Siakam",
+    "slot": "PF",
+    "score": 33.0,
+    "open_value": 24.0,
+    "decision": "lock"
+   }
+  ],
+  "acted": [
+   "Locked Pascal Siakam 33.0"
+  ]
+ },
+ {
+  "t": 1796100002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.52,
+  "mean": 263.5,
+  "opp_mean": 261.9,
+  "points": 7.7,
+  "opp_points": 11.2,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796103602.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.51,
+  "mean": 263.5,
+  "opp_mean": 262.5,
+  "points": 9.9,
+  "opp_points": 14.0,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796135402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.51,
+  "mean": 267.3,
+  "opp_mean": 266.3,
+  "points": 31.2,
+  "opp_points": 39.8,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796145002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.54,
+  "mean": 267.5,
+  "opp_mean": 264.7,
+  "points": 38.1,
+  "opp_points": 47.8,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": [
+   "Swap: Jalen Duren (21.3/g) for Cody Martin (9.6/g), week win 50%->54%",
+   "Lineup: in Jalen Duren / out Naz Reid"
+  ]
+ },
+ {
+  "t": 1796168402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.53,
+  "mean": 268.0,
+  "opp_mean": 265.8,
+  "points": 55.7,
+  "opp_points": 67.6,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796172002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.5,
+  "mean": 268.1,
+  "opp_mean": 267.7,
+  "points": 58.5,
+  "opp_points": 70.7,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796173802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.48,
+  "mean": 268.1,
+  "opp_mean": 268.9,
+  "points": 59.9,
+  "opp_points": 72.2,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796177402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.44,
+  "mean": 268.2,
+  "opp_mean": 271.4,
+  "points": 62.7,
+  "opp_points": 75.3,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796182802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.38,
+  "mean": 268.3,
+  "opp_mean": 275.1,
+  "points": 66.9,
+  "opp_points": 79.9,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796186402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.36,
+  "mean": 268.4,
+  "opp_mean": 276.4,
+  "points": 69.7,
+  "opp_points": 83.0,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796190002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.35,
+  "mean": 268.5,
+  "opp_mean": 277.1,
+  "points": 72.6,
+  "opp_points": 86.1,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796193602.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.35,
+  "mean": 268.5,
+  "opp_mean": 277.1,
+  "points": 75.5,
+  "opp_points": 89.2,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796221802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.35,
+  "mean": 263.8,
+  "opp_mean": 272.4,
+  "points": 98.4,
+  "opp_points": 113.7,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796235002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.36,
+  "mean": 264.1,
+  "opp_mean": 272.1,
+  "points": 109.4,
+  "opp_points": 125.2,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796254802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.37,
+  "mean": 264.5,
+  "opp_mean": 271.9,
+  "points": 126.2,
+  "opp_points": 142.6,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796256602.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.37,
+  "mean": 264.6,
+  "opp_mean": 272.0,
+  "points": 127.7,
+  "opp_points": 144.2,
+  "decisions": [
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 24.5,
+    "open_value": 31.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Zion Williamson",
+    "slot": "UTIL",
+    "score": 23.5,
+    "open_value": 28.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796262002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.39,
+  "mean": 264.7,
+  "opp_mean": 270.9,
+  "points": 132.4,
+  "opp_points": 149.0,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 18.0,
+    "open_value": 26.4,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796263802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.4,
+  "mean": 264.7,
+  "opp_mean": 270.3,
+  "points": 133.9,
+  "opp_points": 150.6,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796267402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.42,
+  "mean": 264.8,
+  "opp_mean": 269.2,
+  "points": 137.0,
+  "opp_points": 153.7,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jalen Brunson",
+    "slot": "PG",
+    "score": 38.5,
+    "open_value": 30.1,
+    "decision": "lock"
+   }
+  ],
+  "acted": [
+   "Locked Jalen Brunson 38.5"
+  ]
+ },
+ {
+  "t": 1796272802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.4,
+  "mean": 264.9,
+  "opp_mean": 270.5,
+  "points": 141.7,
+  "opp_points": 158.5,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Jalen Duren",
+    "slot": "UTIL",
+    "score": 20.0,
+    "open_value": 25.0,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796276402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.39,
+  "mean": 265.0,
+  "opp_mean": 271.2,
+  "points": 144.8,
+  "opp_points": 161.7,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Jalen Duren",
+    "slot": "UTIL",
+    "score": 20.0,
+    "open_value": 25.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796280002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.39,
+  "mean": 265.1,
+  "opp_mean": 271.3,
+  "points": 147.9,
+  "opp_points": 164.9,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Jalen Duren",
+    "slot": "UTIL",
+    "score": 20.0,
+    "open_value": 25.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796308202.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.38,
+  "mean": 267.8,
+  "opp_mean": 274.6,
+  "points": 172.8,
+  "opp_points": 190.0,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Jalen Duren",
+    "slot": "UTIL",
+    "score": 20.0,
+    "open_value": 25.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796314202.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.39,
+  "mean": 268.0,
+  "opp_mean": 274.2,
+  "points": 178.2,
+  "opp_points": 195.4,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": [
+   "Lineup: in Desmond Bane / out Jalen Duren"
+  ]
+ },
+ {
+  "t": 1796325002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.39,
+  "mean": 268.2,
+  "opp_mean": 274.4,
+  "points": 187.9,
+  "opp_points": 205.1,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796332202.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.39,
+  "mean": 268.3,
+  "opp_mean": 274.5,
+  "points": 194.3,
+  "opp_points": 211.5,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796337602.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.38,
+  "mean": 268.5,
+  "opp_mean": 275.3,
+  "points": 199.2,
+  "opp_points": 216.4,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796341202.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.38,
+  "mean": 268.5,
+  "opp_mean": 275.3,
+  "points": 202.5,
+  "opp_points": 219.6,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 22.0,
+    "open_value": 30.5,
+    "decision": "pass"
+   },
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 19.5,
+    "open_value": 27.9,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796344802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.38,
+  "mean": 268.6,
+  "opp_mean": 275.4,
+  "points": 205.8,
+  "opp_points": 222.9,
+  "decisions": [
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796348402.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.35,
+  "mean": 268.7,
+  "opp_mean": 277.3,
+  "points": 209.1,
+  "opp_points": 226.1,
+  "decisions": [
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": [
+   "Zion Williamson to IR (Out, back 2026-12-12), frees an active spot"
+  ]
+ },
+ {
+  "t": 1796350202.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.36,
+  "mean": 268.7,
+  "opp_mean": 276.7,
+  "points": 210.7,
+  "opp_points": 227.8,
+  "decisions": [
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796352002.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.37,
+  "mean": 268.8,
+  "opp_mean": 276.2,
+  "points": 212.4,
+  "opp_points": 229.4,
+  "decisions": [
+   {
+    "player": "Kawhi Leonard",
+    "slot": "SF",
+    "score": 22.5,
+    "open_value": 27.0,
+    "decision": "pass"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   }
+  ],
+  "acted": []
+ },
+ {
+  "t": 1796353802.3,
+  "live": true,
+  "week": 6,
+  "p_win": 0.44,
+  "mean": 268.8,
+  "opp_mean": 272.0,
+  "points": 214.0,
+  "opp_points": 231.0,
+  "decisions": [
+   {
+    "player": "Anthony Edwards",
+    "slot": "SG",
+    "score": 44.5,
+    "open_value": 31.2,
+    "decision": "lock"
+   },
+   {
+    "player": "Jamal Murray",
+    "slot": "G",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass"
+   },
+   {
+    "player": "Domantas Sabonis",
+    "slot": "C",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass"
+   },
+   {
+    "player": "Evan Mobley",
+    "slot": "F",
+    "score": 31.0,
+    "open_value": 25.4,
+    "decision": "lock"
+   }
+  ],
+  "acted": [
+   "Locked Evan Mobley 31.0",
+   "NEEDS YOU: Naji Marshall (16.2/g) is the best pickup for the open spot, but he is on waivers until 3:00 am. Put in the claim on Sleeper."
+  ]
+ }
+]

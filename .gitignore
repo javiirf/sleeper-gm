@@ -1,0 +1,18 @@
+# never commit personal state: config, token, logs, caches live outside the repo,
+# but keep a belt on in case someone points a path here
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+cache/
+logs/
+state/
+config.json
+token
+*.sqlite
+*.jsonl
+.env
+.pytest_cache/
+.review-*.md

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sleeper GM</title>
+<meta name="description" content="What your Sleeper Lock-In manager is doing this week.">
+<meta name="theme-color" content="#F6F7F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1D21" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GM">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Big+Shoulders+Display:wght@600;700;800&display=swap">
+<!-- digits only, from Public Sans: Atkinson draws zero with a slash, which made "10:10" read oddly -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;700&text=0123456789&display=swap">
+<link rel="stylesheet" href="app.css">
+<script>
+  // Theme before first paint: ?theme= wins, then the saved choice, then the system.
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    if (t !== 'dark' && t !== 'light') { try { t = localStorage.getItem('gm.theme'); } catch (e) { t = null; } }
+    if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <filter id="marker" x="-5%" y="-20%" width="110%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <symbol id="i-lock" viewBox="0 0 16 18">
+      <path d="M4.2 8V5.6a3.8 3.8 0 0 1 7.6 0V8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <rect x="1.6" y="7.6" width="12.8" height="9.6" rx="2.2" fill="currentColor"/>
+    </symbol>
+    <symbol id="i-open" viewBox="0 0 16 18">
+      <path d="M4.2 8V5.6a3.8 3.8 0 0 1 7.4-1.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <rect x="1.6" y="7.6" width="12.8" height="9.6" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <header class="top">
+    <div class="top-title">
+      <h1 id="week">Sleeper GM</h1>
+      <div id="league" class="league"></div>
+    </div>
+    <div class="top-side">
+      <div id="status" class="status" hidden></div>
+      <button id="theme" class="icon-btn" type="button" aria-label="Switch to the dark board">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 3.8a8.2 8.2 0 0 1 0 16.4z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="notice" class="notice" role="status" hidden></div>
+
+  <main>
+    <section id="p-board" class="tab-panel" aria-label="Board"></section>
+    <section id="p-moves" class="tab-panel" aria-label="Moves" hidden></section>
+    <section id="p-season" class="tab-panel" aria-label="Season" hidden></section>
+  </main>
+</div>
+
+<nav class="tabbar" aria-label="Sections">
+  <div class="tabbar-in">
+    <a href="#board" data-tab="board" class="tab">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 9.5h10M7 13.5h10M7 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Board</span>
+    </a>
+    <a href="#moves" data-tab="moves" class="tab">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M5 18c3-1 4-4 5-7s3-6 8-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14.5 3.5 18.5 5l-1.6 3.9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="5.5" cy="18" r="2" fill="currentColor"/></svg>
+      <span>Moves</span><i class="tab-flag" hidden></i>
+    </a>
+    <a href="#season" data-tab="season" class="tab">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M5 20V12M10 20V7M15 20v-9M20 20V4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <span>Season</span>
+    </a>
+  </div>
+</nav>
+
+<script src="app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+"""Where things live, and the user's settings. Nothing personal is ever stored in the repo:
+config and token sit in ~/.config/sleeper-gm, logs and lineup history in
+~/.local/state/sleeper-gm, downloaded data in ~/.cache/sleeper-gm (XDG paths, overridable
+with SLEEPER_GM_CONFIG_DIR / SLEEPER_GM_STATE_DIR / SLEEPER_GM_CACHE_DIR)."""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+
+def _xdg(var, default):
+    return Path(os.environ.get(var) or Path.home() / default)
+
+
+CONFIG_DIR = Path(os.environ.get("SLEEPER_GM_CONFIG_DIR") or _xdg("XDG_CONFIG_HOME", ".config") / "sleeper-gm")
+STATE_DIR = Path(os.environ.get("SLEEPER_GM_STATE_DIR") or _xdg("XDG_STATE_HOME", ".local/state") / "sleeper-gm")
+CACHE_DIR = Path(os.environ.get("SLEEPER_GM_CACHE_DIR") or _xdg("XDG_CACHE_HOME", ".cache") / "sleeper-gm")
+CONFIG_FILE = CONFIG_DIR / "config.json"
+TOKEN_FILE = CONFIG_DIR / "token"
+
+DEFAULTS = {
+    "leagues": "auto",              # "auto" = every in-season Lock-In NBA league you own, or a list of league ids
+    "live": False,                  # writes happen only when this is true AND the run asks for --live
+    "moves": True,                  # free-agent adds and add/drop swaps
+    "max_transactions_per_day": 2,  # per league, IR-forced drops included
+    "protect_top": 8,               # never drop your best N players (by rest-of-season value)
+    "protect_ros": 30.0,            # never drop anyone worth this many fantasy points per game
+    "brief_at_et": "09:30",         # first run after this (US Eastern) each day sends the daily brief
+    "web_url": None,                # your private link to the phone app, added to the brief
+    "notify": {
+        "command": None,            # a command that gets the message on stdin, e.g. a script of yours
+        "telegram_chat_id": None,   # with SLEEPER_GM_TELEGRAM_TOKEN in the environment
+        "ntfy_topic": None,         # https://ntfy.sh/<topic>
+    },
+}
+
+
+def load():
+    cfg = json.loads(json.dumps(DEFAULTS))
+    if CONFIG_FILE.exists():
+        user = json.loads(CONFIG_FILE.read_text())
+        notify = {**cfg["notify"], **(user.get("notify") or {})}
+        cfg.update(user)
+        cfg["notify"] = notify
+    return cfg
+
+
+def save(cfg):
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2) + "\n")
+
+
+def league_state(league_id):
+    d = STATE_DIR / str(league_id)
+    (d / "logs").mkdir(parents=True, exist_ok=True)
+    return d

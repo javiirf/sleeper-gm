@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sleeper-gm"
+version = "0.1.0"
+description = "An automated manager for Sleeper fantasy basketball in Lock-In mode: locks, daily lineups, IR and pickups, chosen by simulated win probability. CLI, scheduler, MCP server and a phone app."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "javiirf" }]
+keywords = ["sleeper", "fantasy basketball", "nba", "lock-in", "mcp", "optimal stopping"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Games/Entertainment",
+]
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.2"]
+browser = ["websocket-client>=1.6"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+sleeper-gm = "sleeper_gm.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/javiirf/sleeper-gm"
+Issues = "https://github.com/javiirf/sleeper-gm/issues"
+
+[tool.setuptools.packages.find]
+include = ["sleeper_gm*"]
+
+[tool.setuptools.package-data]
+sleeper_gm = ["model_params.json", "web/*", "web/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,580 @@
+{
+ "t": 1796353802300,
+ "live": true,
+ "league": {
+  "id": "demo",
+  "name": "Cedar Park Hoops",
+  "season": "2026",
+  "week": 6
+ },
+ "days_left": [
+  "2026-12-03",
+  "2026-12-04",
+  "2026-12-05",
+  "2026-12-06"
+ ],
+ "p_win": 0.44,
+ "me": {
+  "name": "Glass Cleaners",
+  "record": "3-2",
+  "points": 214.0,
+  "proj": 268.8,
+  "slots": [
+   {
+    "slot": "PG",
+    "state": "locked",
+    "score": 38.5,
+    "player": {
+     "id": "4866",
+     "name": "Jalen Brunson",
+     "team": "NYK",
+     "pos": [
+      "PG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.98,
+     "proj": 27.4,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796430600000,
+      "opp": "MIA",
+      "home": true
+     }
+    }
+   },
+   {
+    "slot": "SG",
+    "state": "pending",
+    "score": 44.5,
+    "open_value": 31.2,
+    "decision": "lock",
+    "crowd": {
+     "n": 8,
+     "lock": 6,
+     "pass": 2,
+     "lock_share": 0.75,
+     "news": ["Fictional demo: fans mention a possible minutes limit next game."]
+    },
+    "slot_value": 44.5,
+    "player": {
+     "id": "6794",
+     "name": "Anthony Edwards",
+     "team": "MIN",
+     "pos": [
+      "SG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 1,
+     "p_play": 0.97,
+     "proj": 31.0,
+     "next": {
+      "date": "2026-12-05",
+      "tip_ms": 1796518800000,
+      "opp": "DAL",
+      "home": true
+     }
+    }
+   },
+   {
+    "slot": "G",
+    "state": "pending",
+    "score": 27.0,
+    "open_value": 26.1,
+    "decision": "pass",
+    "slot_value": 28.6,
+    "player": {
+     "id": "4881",
+     "name": "Jamal Murray",
+     "team": "DEN",
+     "pos": [
+      "PG",
+      "SG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.93,
+     "proj": 24.8,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796436000000,
+      "opp": "PHX",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "SF",
+    "state": "playing",
+    "slot_value": 26.0,
+    "player": {
+     "id": "2549",
+     "name": "Kawhi Leonard",
+     "team": "LAC",
+     "pos": [
+      "SF",
+      "PF"
+     ],
+     "injury": "GTD",
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.88,
+     "proj": 26.0,
+     "next": {
+      "date": "2026-12-05",
+      "tip_ms": 1796527800000,
+      "opp": "SAC",
+      "home": true
+     }
+    }
+   },
+   {
+    "slot": "PF",
+    "state": "locked",
+    "score": 33.0,
+    "player": {
+     "id": "3320",
+     "name": "Pascal Siakam",
+     "team": "IND",
+     "pos": [
+      "PF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.97,
+     "proj": 25.9,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796428800000,
+      "opp": "TOR",
+      "home": true
+     }
+    }
+   },
+   {
+    "slot": "F",
+    "state": "locked",
+    "score": 31.0,
+    "just_locked": true,
+    "player": {
+     "id": "7568",
+     "name": "Evan Mobley",
+     "team": "CLE",
+     "pos": [
+      "PF",
+      "C"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 1,
+     "p_play": 0.96,
+     "proj": 24.1,
+     "next": {
+      "date": "2026-12-05",
+      "tip_ms": 1796517000000,
+      "opp": "WAS",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "C",
+    "state": "pending",
+    "score": 21.0,
+    "open_value": 25.8,
+    "decision": "pass",
+    "slot_value": 25.9,
+    "player": {
+     "id": "3159",
+     "name": "Domantas Sabonis",
+     "team": "SAC",
+     "pos": [
+      "C",
+      "PF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.95,
+     "proj": 26.7,
+     "next": {
+      "date": "2026-12-03",
+      "tip_ms": 1796355000000,
+      "opp": "POR",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "UTIL",
+    "state": "open",
+    "slot_value": 24.3,
+    "player": {
+     "id": "6130",
+     "name": "Desmond Bane",
+     "team": "ORL",
+     "pos": [
+      "SG",
+      "SF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.96,
+     "proj": 21.5,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796428800000,
+      "opp": "CHA",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "UTIL",
+    "state": "empty",
+    "player": null,
+    "slot_value": 18.0
+   }
+  ],
+  "bench": [
+   {
+    "id": "6846",
+    "name": "Naz Reid",
+    "team": "MIN",
+    "pos": [
+     "C",
+     "PF"
+    ],
+    "injury": null,
+    "return": null,
+    "games_left": 1,
+    "p_play": 0.98,
+    "proj": 17.8,
+    "next": {
+     "date": "2026-12-05",
+     "tip_ms": 1796518800000,
+     "opp": "DAL",
+     "home": true
+    }
+   },
+   {
+    "id": "8130",
+    "name": "Jalen Duren",
+    "team": "DET",
+    "pos": [
+     "C"
+    ],
+    "injury": null,
+    "return": null,
+    "games_left": 2,
+    "p_play": 0.97,
+    "proj": 21.3,
+    "next": {
+     "date": "2026-12-04",
+     "tip_ms": 1796430600000,
+     "opp": "ATL",
+     "home": false
+    }
+   },
+   {
+    "id": "6150",
+    "name": "Coby White",
+    "team": "CHI",
+    "pos": [
+     "PG",
+     "SG"
+    ],
+    "injury": "DTD",
+    "return": null,
+    "games_left": 2,
+    "p_play": 0.62,
+    "proj": 19.4,
+    "next": {
+     "date": "2026-12-04",
+     "tip_ms": 1796432400000,
+     "opp": "BKN",
+     "home": true
+    }
+   },
+   {
+    "id": "5880",
+    "name": "Keldon Johnson",
+    "team": "SAS",
+    "pos": [
+     "SF",
+     "PF"
+    ],
+    "injury": null,
+    "return": null,
+    "games_left": 2,
+    "p_play": 0.99,
+    "proj": 15.9,
+    "next": {
+     "date": "2026-12-04",
+     "tip_ms": 1796434200000,
+     "opp": "MEM",
+     "home": true
+    }
+   }
+  ],
+  "ir": [
+   {
+    "id": "5850",
+    "name": "Zion Williamson",
+    "team": "NOP",
+    "pos": [
+     "PF"
+    ],
+    "injury": "Out",
+    "return": "2026-12-12",
+    "games_left": 0,
+    "p_play": 0.0,
+    "proj": null,
+    "next": {
+     "date": "2026-12-04",
+     "tip_ms": 1796432400000,
+     "opp": "HOU",
+     "home": true
+    }
+   }
+  ]
+ },
+ "opp": {
+  "name": "Fourth Quarter Ghosts",
+  "record": "4-1",
+  "points": 231.0,
+  "proj": 272.6,
+  "slots": [
+   {
+    "slot": "PG",
+    "state": "locked",
+    "score": 49.0,
+    "player": {
+     "id": "6797",
+     "name": "Luka Doncic",
+     "team": "LAL",
+     "pos": [
+      "PG",
+      "SG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 1,
+     "p_play": 0.95,
+     "proj": 38.2,
+     "next": {
+      "date": "2026-12-06",
+      "tip_ms": 1796610600000,
+      "opp": "DEN",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "SG",
+    "state": "pending",
+    "score": 28.0,
+    "player": {
+     "id": "4398",
+     "name": "Donovan Mitchell",
+     "team": "CLE",
+     "pos": [
+      "SG",
+      "PG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 1,
+     "p_play": 0.96,
+     "proj": 29.0,
+     "next": {
+      "date": "2026-12-05",
+      "tip_ms": 1796517000000,
+      "opp": "WAS",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "G",
+    "state": "locked",
+    "score": 36.5,
+    "player": {
+     "id": "6890",
+     "name": "Tyrese Maxey",
+     "team": "PHI",
+     "pos": [
+      "PG",
+      "SG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.97,
+     "proj": 30.1,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796428800000,
+      "opp": "BOS",
+      "home": true
+     }
+    }
+   },
+   {
+    "slot": "SF",
+    "state": "open",
+    "player": {
+     "id": "3164",
+     "name": "Jaylen Brown",
+     "team": "BOS",
+     "pos": [
+      "SG",
+      "SF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.95,
+     "proj": 27.6,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796428800000,
+      "opp": "PHI",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "PF",
+    "state": "open",
+    "player": {
+     "id": "7547",
+     "name": "Paolo Banchero",
+     "team": "ORL",
+     "pos": [
+      "PF",
+      "SF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.94,
+     "proj": 28.3,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796428800000,
+      "opp": "CHA",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "F",
+    "state": "locked",
+    "score": 30.0,
+    "player": {
+     "id": "7579",
+     "name": "Scottie Barnes",
+     "team": "TOR",
+     "pos": [
+      "SF",
+      "PF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.97,
+     "proj": 28.0,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796428800000,
+      "opp": "IND",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "C",
+    "state": "locked",
+    "score": 58.5,
+    "player": {
+     "id": "4046",
+     "name": "Nikola Jokic",
+     "team": "DEN",
+     "pos": [
+      "C"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.96,
+     "proj": 46.9,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796436000000,
+      "opp": "PHX",
+      "home": false
+     }
+    }
+   },
+   {
+    "slot": "UTIL",
+    "state": "playing",
+    "player": {
+     "id": "10229",
+     "name": "Victor Wembanyama",
+     "team": "SAS",
+     "pos": [
+      "C",
+      "PF"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.9,
+     "proj": 39.4,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796434200000,
+      "opp": "MEM",
+      "home": true
+     }
+    }
+   },
+   {
+    "slot": "UTIL",
+    "state": "pending",
+    "score": 29.0,
+    "player": {
+     "id": "7525",
+     "name": "Cade Cunningham",
+     "team": "DET",
+     "pos": [
+      "PG",
+      "SG"
+     ],
+     "injury": null,
+     "return": null,
+     "games_left": 2,
+     "p_play": 0.96,
+     "proj": 34.0,
+     "next": {
+      "date": "2026-12-04",
+      "tip_ms": 1796430600000,
+      "opp": "ATL",
+      "home": false
+     }
+    }
+   }
+  ]
+ },
+ "acted": [
+  "Locked Evan Mobley 31.0",
+  "NEEDS YOU: Naji Marshall (16.2/g) is the best pickup for the open spot, but he is on waivers until 3:00 am. Put in the claim on Sleeper."
+ ]
+}

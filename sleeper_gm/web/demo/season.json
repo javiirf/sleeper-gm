@@ -1,0 +1,72 @@
+[
+ {
+  "week": 1,
+  "points": 231.5,
+  "opp_points": 218.0,
+  "max_points": 262.0,
+  "won": 1,
+  "efficiency": 0.884,
+  "efficiency_rank": 3,
+  "teams": 10,
+  "p_win_first": 0.55,
+  "brier": 0.15,
+  "runs": 31,
+  "locks": 7
+ },
+ {
+  "week": 2,
+  "points": 208.0,
+  "opp_points": 244.5,
+  "max_points": 251.0,
+  "won": 0,
+  "efficiency": 0.829,
+  "efficiency_rank": 6,
+  "teams": 10,
+  "p_win_first": 0.38,
+  "brier": 0.11,
+  "runs": 34,
+  "locks": 6
+ },
+ {
+  "week": 3,
+  "points": 256.5,
+  "opp_points": 249.0,
+  "max_points": 279.0,
+  "won": 1,
+  "efficiency": 0.919,
+  "efficiency_rank": 1,
+  "teams": 10,
+  "p_win_first": 0.47,
+  "brier": 0.21,
+  "runs": 36,
+  "locks": 8
+ },
+ {
+  "week": 4,
+  "points": 222.5,
+  "opp_points": 236.0,
+  "max_points": 248.0,
+  "won": 0,
+  "efficiency": 0.897,
+  "efficiency_rank": 2,
+  "teams": 10,
+  "p_win_first": 0.33,
+  "brier": 0.09,
+  "runs": 38,
+  "locks": 7
+ },
+ {
+  "week": 5,
+  "points": 247.0,
+  "opp_points": 212.5,
+  "max_points": 270.5,
+  "won": 1,
+  "efficiency": 0.913,
+  "efficiency_rank": 2,
+  "teams": 10,
+  "p_win_first": 0.71,
+  "brier": 0.06,
+  "runs": 39,
+  "locks": 8
+ }
+]
