@@ -1,5 +1,5 @@
 /* Caches the app shell, and keeps the last good JSON so the board still opens offline. */
-var SHELL = 'gm-shell-v2';
+var SHELL = 'gm-shell-v3';
 var DATA = 'gm-data-v1';
 var FONTS = 'gm-fonts-v1';
 var DATA_MAX_AGE = 7 * 86400000;

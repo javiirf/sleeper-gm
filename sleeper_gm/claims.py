@@ -294,7 +294,7 @@ def view(ctx, wk):
         entry = {"add": ", ".join(wk.name(p) for p in owned_players(row, "adds", ctx.rid)),
                  "drop": ", ".join(wk.name(p) for p in owned_players(row, "drops", ctx.rid)) or None}
         if tid in state.get("bot", {}):
-            entry.update(seq=seq(row), why=state["bot"][tid].get("why", ""))
+            entry.update(seq=seq(row), rank=len(bot) + 1, why=state["bot"][tid].get("why", ""))
             bot.append(entry)
         else:
             owner.append(entry)

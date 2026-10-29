@@ -413,7 +413,7 @@ const $ = () => el, buildFeed = () => [], tidy = () => ({kind: 'note'}), glyph =
 const rowWrap = (key, cls, inner, why) => inner + why;
 ''' + render + '\nrenderMoves(); console.log(JSON.stringify(el.innerHTML));'
     html = _node(script)
-    assert '<h2>Claims</h2>' in html and 'Taylor Example' in html and '#2' in html
+    assert '<h2>Claims</h2>' in html and 'Taylor Example' in html and '#1' in html
     assert '&lt;script&gt;' in html and '<script>' not in html
     assert 'Got Morgan Sample' in html
 
@@ -518,3 +518,14 @@ def test_claim_bar_is_lower_only_when_add_wins_both_ways(monkeypatch, add, week_
                                                      (-.01, 1, moves.SWAP_EDGE), (0, 1, moves.SWAP_EDGE)])
 def test_swap_edge(week_gain, ros_gain, edge):
     assert moves.swap_edge(week_gain, ros_gain) == edge
+
+
+def test_view_ranks_bot_claims_in_processing_order(home, monkeypatch):
+    wk, me, opp, r = fixture(monkeypatch)
+    ctx = SimpleNamespace(dir=Path(home), rid=1, claims_available=True,
+                          pending_claims=[row("b2", add="alt", drop="cut", seq=0), row("b1", add="add", drop="cut", seq=0),
+                                          row("own", seq=0)])
+    claims.save_state(ctx.dir, {"bot": {"b1": {"why": "first"}, "b2": {"why": "backup"}}})
+    view = claims.view(ctx, wk)
+    assert [(c["add"], c["rank"]) for c in view["bot"]] == [("add", 1), ("alt", 2)]
+    assert [c["add"] for c in view["owner"]] == ["owner_add"]

@@ -782,7 +782,7 @@
     else {
       h.push('<ul class="feed">');
       pending.forEach(function (entry, i) {
-        var c = entry.c, label = entry.owner ? 'Yours' : '#' + c.seq;
+        var c = entry.c, label = entry.owner ? 'Yours' : '#' + (c.rank || c.seq);
         var text = 'Add ' + (c.add || 'player') + (c.drop ? ', drop ' + c.drop : '');
         var inner = '<span class="t">' + esc(label) + '</span><span class="g" aria-hidden="true">' + glyph('add') + '</span><span class="txt">' + esc(text) + '</span>';
         var why = entry.owner ? 'Your claim. The manager leaves it unchanged.' : c.why;
