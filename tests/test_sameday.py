@@ -85,7 +85,9 @@ def live_week(state="complete", score=5, box=True):
     ("in_game", True, 5, "a"), ("complete", False, 5, "a"),
     ("complete", True, 5, "b"), ("complete", True, 40, "a"),
 ])
-def test_between_games_handoff_waits_for_final_box_and_pass(state, box, score, expected):
+def test_between_games_handoff_waits_for_final_box_and_pass(monkeypatch, state, box, score, expected):
+    # The write guards read the wall clock on purpose; pin it to the fixture's 21:40.
+    monkeypatch.setattr(cycle.time, "time", lambda: tip(21, 40) / 1000)
     wk = live_week(state, score, box)
     me = week.build_team(wk, 1)
     opp = Team(["UTIL"], ["o"], {"o": ["SF"]}, locked={0: 0})

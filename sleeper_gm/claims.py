@@ -17,6 +17,9 @@ WAIVER_FAILURE_LIMIT = 3
 # Linearly reduce that opportunity cost to zero at last priority. This is a heuristic.
 FIRST_PRIORITY_EDGE = 0.06
 REPLACE_MARGIN = 0.01  # require a full P(win) point over a still-worthwhile pending claim
+# A placed claim is kept until its edge falls a full P(win) point under the bar it cleared,
+# so Monte Carlo noise and small projection moves cannot place and pull it on alternate runs.
+HOLD_MARGIN = 0.01
 
 
 def read_state(directory):
@@ -134,8 +137,8 @@ def plan(wk, me, opp, roster, owner, process_ms, limit, existing=()):
     cost = priority_cost(wk, roster)
     scored = {}
 
-    def evaluate(a, d):
-        key = (a, d)
+    def evaluate(a, d, hold=False):
+        key = (a, d, hold)
         if key in scored:
             return scored[key]
         if a not in candidates or (d is not None and d not in droppable) or (d is None and len(active) >= max_active):
@@ -144,7 +147,7 @@ def plan(wk, me, opp, roster, owner, process_ms, limit, existing=()):
         ros_gain = moves.keep_value(wk, a) - (moves.keep_value(wk, d) if d else 0)
         score = p - base + moves.KAPPA * ros_gain
         threshold = (moves.swap_edge(p - base, ros_gain) if d else 0) + cost
-        if score <= 0 or score < threshold:
+        if score <= 0 or score < threshold - (HOLD_MARGIN if hold else 0):
             scored[key] = None
         else:
             why = (f"{wk.name(a)}" + (f" for {wk.name(d)}" if d else ", open roster spot")
@@ -165,7 +168,7 @@ def plan(wk, me, opp, roster, owner, process_ms, limit, existing=()):
         adds, cuts = owned_players(row, "adds", wk.my_rid), owned_players(row, "drops", wk.my_rid)
         if len(adds) != 1 or len(cuts) > 1:
             continue
-        current = evaluate(adds[0], cuts[0] if cuts else None)
+        current = evaluate(adds[0], cuts[0] if cuts else None, hold=True)
         if current and len(selected) < limit and fits(current, selected):
             selected.append(current)
     ranked = []
@@ -353,7 +356,10 @@ def reconcile(ctx, wk, me, opp):
         budget_available(ctx, state)
         if any(str(r.get("transaction_id")) == tid for r in ctx.pending_claims):
             return
-        ctx.acted.append("Stale bot claim no longer pending")
+        drops = owned_players(row, "drops", ctx.rid)
+        ctx.acted.append(f"Pulled claim: {', '.join(wk.name(p) for p in owned_players(row, 'adds', ctx.rid))}"
+                         + (f" for {', '.join(wk.name(p) for p in drops)}" if drops else "")
+                         + " (no longer in the plan)")
     bid = 0 if wk.league["settings"].get("waiver_type") == 2 else None
     for m in wanted:
         row = next((r for r in ctx.pending_claims if identity(r) == request_identity(m, ctx.rid)), None)

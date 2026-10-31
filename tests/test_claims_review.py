@@ -232,7 +232,7 @@ def test_two_run_hysteresis_avoids_near_tie_cancel_resubmit(home, monkeypatch, s
                                 if replace else [("submit", "add")])
 
 
-@pytest.mark.parametrize("score_value,keep", [(19, False), (19.5, True), (20, True)])
+@pytest.mark.parametrize("score_value,keep", [(16.5, False), (17.5, True), (19, True), (20, True)])
 def test_incumbent_rechecked_against_own_threshold(home, monkeypatch, score_value, keep):
     values = {"core": 40, "cut": 12, "add": score_value, "alt": 18, "owner_add": 24}
     wk, me, opp, _r = fixture(monkeypatch, values=values)
@@ -242,6 +242,28 @@ def test_incumbent_rechecked_against_own_threshold(home, monkeypatch, score_valu
     claims.reconcile(ctx, wk, me, opp)
     assert bool(rows) is keep
     assert ctx.writer.calls == ([] if keep else [("cancel", "bot", 2)])
+
+
+@pytest.mark.parametrize("second,kept", [(19, True), (17.5, True), (16.5, False)])
+def test_placed_claim_holds_through_a_small_dip_under_its_bar(home, monkeypatch, second, kept):
+    # The bar is 0.03 here (add 19.5 vs cut 12 at KAPPA): 20 clears it, 19 and 17.5 do not.
+    values = {"core": 40, "cut": 12, "add": 20, "alt": 0, "owner_add": 24}
+    wk, me, opp, _r = fixture(monkeypatch, values=values)
+    ctx, rows = context(home, monkeypatch)
+    claims.reconcile(ctx, wk, me, opp)
+    first_id = rows[0]["transaction_id"]
+    values["add"] = second
+    claims.reconcile(ctx, wk, me, opp)
+    assert ctx.writer.calls == ([("submit", "add")] if kept else [("submit", "add"), ("cancel", first_id, 2)])
+    assert ("Pulled claim: add for cut (no longer in the plan)" in ctx.acted) is not kept
+
+
+@pytest.mark.parametrize("value", [19, 17.5])
+def test_hold_margin_never_lowers_the_bar_for_a_new_claim(home, monkeypatch, value):
+    wk, me, opp, _r = fixture(monkeypatch, values={"core": 40, "cut": 12, "add": value, "alt": 0, "owner_add": 24})
+    ctx, rows = context(home, monkeypatch)
+    claims.reconcile(ctx, wk, me, opp)
+    assert ctx.writer.calls == [] and rows == []
 
 
 @pytest.mark.parametrize("kind", ["submit_claim", "update_claim", "cancel_claim"])

@@ -88,8 +88,9 @@ identify planned games or reserves without promising an injury substitution the 
   legal is sent on its own, and a refusal is remembered.
 - Max 2 immediate roster transactions a day per league (IR-forced drops included). Up to 3 bot
   waiver claims pending (`max_claims`), appended to the queue. Your claims are never edited or
-  cancelled. Each full run revalues pending bot claims. A claim stays unless it no longer clears
-  its required edge or a replacement improves its current score by at least 0.01 P(win).
+  cancelled. Each full run revalues pending bot claims. A claim stays unless its edge falls
+  a full P(win) point under the bar it cleared (so noise cannot place and pull it on alternate runs)
+  or a replacement improves its current score by at least 0.01 P(win).
   No changes happen in the 15 minutes before estimated processing, and every submission must
   appear in the authenticated pending list.
 - Max 6 claim mutations per league per ET day (`max_claim_writes_per_day`), counting submits,
