@@ -136,7 +136,10 @@ def due(cfg, now_ms):
             return True, False
     state = api.rest("/v1/state/nba", fresh=True)
     last = rs.get("last_full_ms", 0)
-    for g in api.scores(state["season"], int(state["leg"])):
+    rows = api.scores(state["season"], int(state["leg"]))
+    if rows and not any(g.get("status") in ("pre_game", "in_game") for g in rows):
+        rows = rows + (api.scores(state["season"], int(state["leg"]) + 1) or [])  # the week is over: watch the next
+    for g in rows:
         start = int(g["start_time"])
         st = g.get("status")
         if st == "in_game" or (st == "pre_game" and start - now_ms < DUE_AHEAD_MS) or (st == "complete" and start > last - 4 * 3600 * 1000):

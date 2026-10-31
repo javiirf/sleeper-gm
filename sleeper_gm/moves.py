@@ -63,7 +63,7 @@ def keep_value(wk, pid, horizon=4):
 
 def busy(team, pid):
     """Locked this week, mid-game (or box score pending), or holding a lockable game."""
-    return (pid in getattr(team, "lock_games", {}) or pid in team.frozen
+    return (pid in getattr(team, "lock_games", {}) or pid in team.frozen or pid in getattr(team, "held", ())
             or any(p == pid for p, _x, _g in team.pending.values()))
 
 

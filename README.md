@@ -101,6 +101,9 @@ identify planned games or reserves without promising an injury substitution the 
   Immediate adds reserve space for your viable queued no-drop claims. Rolling priority has an
   opportunity cost that reaches zero at last place. FAAB bids are $0; leagues requiring positive
   bids get no bot claims.
+- Once a week's last game is over it plans the next week, before Sleeper opens it, so the new
+  week's first waiver run gets its claims. Lineup saves wait for Sleeper, and the starters of the
+  week that just ended are never dropped or moved to IR in that window.
 - Processing is estimated from the median ET time of completed/failed claims, default 03:10 ET.
   This is not a prediction of when a player leaves waivers. A waiver refusal skips that player's
   free-agent path until processing; three refusals without a successful add switch the league to

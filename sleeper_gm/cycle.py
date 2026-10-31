@@ -331,7 +331,10 @@ def _refresh_write_guards(ctx, wk):
     state = api.rest("/v1/state/nba", fresh=True)
     if int(state["leg"]) != wk.week:
         ctx.week_rolled_over = True
-        ctx.acted.append("Skipped writes: week rolled over")
+        if not (getattr(wk, "ahead", False) and int(state["leg"]) == wk.week - 1):
+            ctx.acted.append("Skipped writes: week rolled over")
+        elif min((g.start_ms for g in wk.games), default=0) - int(time.time() * 1000) < 3 * 3600 * 1000:
+            ctx.acted.append(f"NEEDS YOU: Sleeper has not opened week {wk.week} yet, so no lineup can be saved for it")
         return False
     wk.games, wk.by_team = week.schedule(scores)
     return True

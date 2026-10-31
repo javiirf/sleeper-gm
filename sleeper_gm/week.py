@@ -57,6 +57,8 @@ class Week:
     opp_rid: int
     state_dir: str = "state"
     extra: dict = field(default_factory=dict)
+    ahead: bool = False             # planning next week before Sleeper opens it
+    held: frozenset = frozenset()   # ...and my starters of the week that just ended: never drop or IR them
 
     def name(self, pid):
         p = self.players.get(pid) or {}
@@ -115,6 +117,10 @@ def schedule(scores):
     return games, by_team
 
 
+def remaining(games, now_ms):
+    return sorted({g.date for g in games if g.start_ms > now_ms or g.status != "complete"})
+
+
 def load(store, model_factory, league_id, my_rid, now_ms=None, state_dir="state"):
     now_ms = now_ms or int(time.time() * 1000)
     league = api.rest(f"/v1/league/{league_id}")
@@ -122,7 +128,20 @@ def load(store, model_factory, league_id, my_rid, now_ms=None, state_dir="state"
     season, week = str(league["season"]), int(state["leg"])
     slots = [p for p in league["roster_positions"] if p not in ("BN", "IR", "TAXI")]
     games, by_team = schedule(api.scores(season, week))
-    days = sorted({g.date for g in games if g.start_ms > now_ms or g.status != "complete"})
+    days = remaining(games, now_ms)
+    ahead, held = False, frozenset()
+    if games and not days:
+        # Sleeper opens the next week some time after this one's last game. Plan it as soon as
+        # this one is over, so the new week's first waiver run gets claims; lineup saves still
+        # wait for Sleeper (cycle._refresh_write_guards).
+        nxt, nxt_by_team = schedule(api.scores(season, week + 1))
+        nxt_legs = api.legs(league_id, week + 1) if remaining(nxt, now_ms) else []
+        mid = next((l.get("matchup_id") for l in nxt_legs or [] if l.get("roster_id") == my_rid), None)
+        if mid and any(l.get("matchup_id") == mid and l.get("roster_id") != my_rid for l in nxt_legs):
+            ended = next((l for l in api.legs(league_id, week) if l.get("roster_id") == my_rid), {})
+            held = frozenset(p for p in ended.get("starters") or [] if p != "0")
+            week, games, by_team, ahead = week + 1, nxt, nxt_by_team, True
+            days = remaining(games, now_ms)
     box = {}
     for r in api.rest(f"/stats/nba/{season}/{week}?season_type=regular", fresh=True) or []:
         if not str(r.get("player_id", "")).startswith("TEAM_"):
@@ -167,7 +186,7 @@ def load(store, model_factory, league_id, my_rid, now_ms=None, state_dir="state"
     mine = legs[my_rid]
     opp_rid = next(r for r, l in legs.items() if l.get("matchup_id") == mine.get("matchup_id") and r != my_rid)
     wk = Week(season, week, now_ms, league, league["scoring_settings"], slots, games, by_team, days, box,
-              players, store.injuries(), rosters, legs, my_rid, opp_rid, state_dir)
+              players, store.injuries(), rosters, legs, my_rid, opp_rid, state_dir, ahead=ahead, held=held)
     record_snapshot(wk, list(mine.get("starters") or []), seen_ms, "observed")
     wk.model = model_factory(wk)
     return wk
@@ -231,6 +250,8 @@ def build_team(wk, rid, snaps=None):
     active = [p for p in roster.get("players") or [] if p not in reserve]
     positions = {p: (wk.players.get(p) or {}).get("fantasy_positions") or [] for p in active}
     t = Team(list(wk.slots), starters, positions, now_ms=wk.now_ms)
+    if rid == wk.my_rid:
+        t.held = set(wk.held)
     t.lock_games, t.uncertain = {}, set()
     refused = unlockable(wk) if snaps is not None else {}
     for p in active:

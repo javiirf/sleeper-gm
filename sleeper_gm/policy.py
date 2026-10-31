@@ -88,6 +88,7 @@ class Team:
     final_done: set = field(default_factory=set)   # pids whose last game of the week is already over
     now_ms: int | None = None
     lock_at: dict = field(default_factory=dict)    # pid -> owner threshold for this week only
+    held: set = field(default_factory=set)         # last week's starters while Sleeper has not opened this week
 
     def open_slots(self, extra_locks=()):
         return [i for i in range(len(self.slots)) if i not in self.locked and i not in extra_locks]
