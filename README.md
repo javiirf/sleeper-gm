@@ -169,7 +169,9 @@ sleeper-gm web --demo     # the demo league in the screenshots
 
 It binds to localhost and shows your league, so keep it private. With Tailscale:
 `tailscale serve --bg --https=8448 http://127.0.0.1:8770`, open it on your phone and use
-Add to Home Screen. Board: this week's win-chance line and every slot's call. Moves: every lock,
+Add to Home Screen. Board: this week's win-chance line, a Your GM card with its last call and
+what it decides next (lock bars, pending claims, waiver time) plus an Ask why button, and every
+slot's call. Moves: every lock,
 pass and pickup with the reason, plus pending claims and their last results. Season: results, share of the best possible lineup, and how its
 win chances held up. Ask: discuss the actual saved plan with your GM and save keep, avoid or
 weekly lock instructions. Chat starts off; [chat setup and limits](docs/chat.md) explains how to

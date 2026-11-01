@@ -1,5 +1,5 @@
 /* Caches the app shell, and keeps demo JSON offline. Private API requests always go to the server. */
-var SHELL = 'gm-shell-v4';
+var SHELL = 'gm-shell-v5';
 var DATA = 'gm-data-v2';
 var FONTS = 'gm-fonts-v1';
 var DATA_MAX_AGE = 7 * 86400000;
@@ -7,7 +7,9 @@ var FILES = ['./', 'index.html', 'app.css', 'app.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(SHELL).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(SHELL).then(function (c) {
+    return c.addAll(FILES.map(function (f) { return new Request(f, { cache: 'reload' }); }));
+  }).then(function () { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function (e) {
@@ -66,8 +68,10 @@ self.addEventListener('fetch', function (e) {
     return;
   }
 
-  // shell: network first so updates land, cache when offline
-  e.respondWith(fetch(req).then(function (res) {
+  // shell: network first so updates land, cache when offline; revalidate past the HTTP cache,
+  // which would otherwise hand back an app.js it guessed was still fresh
+  // (by URL: re-initialising a navigate-mode Request throws in older WebKit)
+  e.respondWith(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
     if (res.ok) { var copy = res.clone(); caches.open(SHELL).then(function (c) { c.put(req, copy); }); }
     return res;
   }).catch(function () {

@@ -620,6 +620,7 @@
       '<span class="n" role="cell">' + esc(f1(me.points)) + '</span><span class="n p" role="cell">' + esc(f1(me.proj)) + '</span>' +
       '<span class="who" role="rowheader"><span class="vs">vs</span>' + esc(opp.name || 'Opponent') + (opp.record ? '<small>' + esc(opp.record) + '</small>' : '') + '</span>' +
       '<span class="n" role="cell">' + esc(f1(opp.points)) + '</span><span class="n p" role="cell">' + esc(f1(opp.proj)) + '</span></div></section>');
+    h.push(gmNow(now));
     if (Array.isArray(now.days_left) && !now.days_left.length) {
       h.push('<div class="empty-state"><strong>No games left this week</strong>The board resets Monday.' + (slots.length ? ' Final calls are below.' : '') + '</div>');
     }
@@ -677,6 +678,54 @@
       s = s.replace(/^([A-Z][A-Z ]{5,}):/, function (x) { return x.charAt(0) + x.slice(1).toLowerCase(); });
     }
     return { kind: kind, text: s.replace(/\s+/g, ' ').trim(), win: win };
+  }
+
+  /* What the GM just did and what it decides next, so the board answers "what is it doing?" */
+  function gmNext(now) {
+    var slots = arr(obj(now.me).slots).map(obj), nowMs = Date.now(), best = null, out = [], locks = [], waits = [];
+    slots.forEach(function (s) {
+      if (s.state === 'pending' && s.decision && s.player) {
+        (s.decision === 'lock' ? locks : waits).push(s.player.name + ' ' + f1(s.score) + ' (slot worth ' + f1(s.open_value) + ')');
+      }
+      if (s.state === 'locked') return;
+      arr(obj(s.plan).looks).forEach(function (l) {
+        l = obj(l);
+        if (num(l.tip_ms) == null || l.tip_ms < nowMs - 3 * 3600000) return;
+        if (!best || l.tip_ms < best.l.tip_ms) best = { s: s, l: l };
+      });
+    });
+    if (locks.length || waits.length) {
+      out.push('Deciding now: ' + (locks.length ? 'lock ' + locks.join(', ') + '. ' : '') +
+        (waits.length ? (locks.length ? 'Wait on ' : 'wait on ') + waits.join(', ') + ' for a better game.' : ''));
+    }
+    if (best) {
+      out.push('Next call ' + wd(best.l.tip_ms) + ' ' + tm(best.l.tip_ms) + ': ' + best.l.name + ' at ' + best.s.slot +
+        (best.l.terminal ? '. His last look, so that game counts whatever he scores.' : '. It locks him at ' + f1(best.l.lock_above) + ' or more, otherwise the slot waits.'));
+    }
+    var claims = obj(now.claims), bot = arr(claims.bot).map(obj), run = num(claims.next_processing_ms);
+    if (bot.length) {
+      out.push(plural(bot.length, 'claim') + ' in' + (run ? ' for waivers ' + wd(run) + ' ' + tm(run) : '') + ': ' +
+        bot.map(function (c) { return 'add ' + c.add + (c.drop ? ' for ' + c.drop : ''); }).join('; ') + '.');
+    }
+    if (!out.length) {
+      out.push(slots.length && slots.every(function (s) { return s.state === 'locked'; })
+        ? 'Every slot is locked, so nothing is left to decide this week. It plans next week as soon as the last game ends.'
+        : arr(now.days_left).length ? 'Nothing to decide until the next game.' : 'No games left. It plans next week as soon as the last game ends.');
+    }
+    return out;
+  }
+
+  function gmNow(now) {
+    var last = buildFeed()[0];
+    var h = '<section class="gm-now" aria-label="What your GM is doing"><h2>Your GM</h2>';
+    if (last) {
+      h += '<div class="gm-row"><span class="gm-k">Last call</span><div><p><time>' + esc(when(last.t)) + '</time>' + esc(last.text) +
+        (!last.live && /^(lock|add|swap|ir|lineup)$/.test(last.kind) ? ' (paused, not sent)' : '') + '</p></div></div>';
+    }
+    h += '<div class="gm-row"><span class="gm-k">Next</span><div>' + gmNext(now).map(function (x) { return '<p>' + esc(x) + '</p>'; }).join('') + '</div></div>';
+    h += '<button type="button" class="gm-ask" data-ask="' + esc(last ? 'Explain this call: ' + last.text : 'What are you deciding next, and why?') + '">' +
+      (last ? 'Ask why' : 'Ask what is next') + ' <span aria-hidden="true">↗</span></button>';
+    return h + '</section>';
   }
 
   function buildFeed() {
@@ -1015,8 +1064,23 @@
       if (c.revision !== revision) return;
       applyChatView(c, data); c.error = data.error || ''; c.loaded = true;
     }).catch(function (e) { if (c.revision === revision) c.error = e.message; }).then(function () {
-      c.loading = false; if (S.chat === c) renderAsk();
+      c.loading = false; if (S.chat === c) { renderAsk(); flushQueued(); }
     });
+  }
+
+  function askAbout(question) {
+    chatState().queued = question;
+    if (currentTab() !== 'ask') location.hash = '#ask';
+    else flushQueued();
+  }
+
+  function flushQueued() {
+    var c = chatState();
+    if (!c.queued || c.busy || c.loading) return;
+    var question = c.queued;
+    c.queued = null;
+    if (c.enabled === true) sendChat(question);
+    else { c.draft = question; renderAsk(); }
   }
 
   function undoButton(id) {
@@ -1171,6 +1235,8 @@
   document.addEventListener('click', function (e) {
     var question = e.target.closest && e.target.closest('[data-question]');
     if (question) { sendChat(question.getAttribute('data-question')); return; }
+    var about = e.target.closest && e.target.closest('[data-ask]');
+    if (about) { askAbout(about.getAttribute('data-ask')); return; }
     var undo = e.target.closest && e.target.closest('[data-undo]');
     if (undo) { changeChat('directives', {id: undo.getAttribute('data-undo')}); return; }
     if (e.target.closest && e.target.closest('#chat-clear')) { changeChat('chat/clear', {}); return; }

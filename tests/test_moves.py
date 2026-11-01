@@ -80,6 +80,15 @@ def test_protected_bench_player_is_never_cut(protected, expect):
     assert m.drop == expect
 
 
+@pytest.mark.parametrize("status,protected,why", [
+    ("DTD", (), "back is DTD, so he cannot stay on IR, and the roster is full: dropping b (5.0 a game, back 22.0) to activate him"),
+    (None, ("b",), "back is healthy, so he cannot stay on IR, and the roster is full: dropping him (22.0 a game, nobody on the bench is safe to drop)"),
+])
+def test_ir_drop_reason_names_his_status_and_the_values_compared(status, protected, why):
+    wk = WK({"a": None, "b": None, "c": None, "back": status}, {"a": 30, "b": 5, "c": 12, "back": 22}, protected=protected)
+    assert moves.ir_fix(wk, team(["a", "c"]), {"players": ["a", "b", "c", "back"], "reserve": ["back"]}).why == why
+
+
 def test_injury_lowers_keep_value_by_time_missed():
     wk = WK({"x": None, "y": "Out"}, {"x": 20, "y": 20}, avail={"y": 0.0})
     assert moves.keep_value(wk, "x") == pytest.approx(20)

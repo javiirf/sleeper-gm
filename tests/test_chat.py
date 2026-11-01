@@ -211,15 +211,33 @@ def test_history_and_directive_writes_are_redacted(home, monkeypatch, text, expe
         assert "secret-session-token" not in (home / filename).read_text()
 
 
-@pytest.mark.parametrize("command,status", [(None, 503), (["/path/does/not/exist"], 502), ([sys.executable, "-c", "import time;time.sleep(2)"], 504), ([sys.executable, "-c", "import sys;sys.stderr.write('private failure');sys.exit(4)"], 502)])
+@pytest.mark.parametrize("command,status", [(None, 503), (["/path/does/not/exist"], 503), ([sys.executable, "-c", "import time;time.sleep(2)"], 504), ([sys.executable, "-c", "import sys;sys.stderr.write('private failure');sys.exit(4)"], 502)])
 def test_command_failure_is_safe(home, command, status):
     from sleeper_gm import chat
     with pytest.raises(chat.ChatError) as error:
         chat.reply(home, "private owner message", configured(command, timeout=.05))
     assert error.value.status == status
     assert "private" not in str(error.value)
-    if status == 503:
+    if command is None:
         assert str(error.value) == "Chat is off. Set chat.command in your config."
+    elif status == 503:
+        assert str(error.value) == "Chat is down: the server cannot find exist. Put its full path in chat.command."
+
+
+@pytest.mark.parametrize("on_path", [False, True])
+def test_chat_state_says_when_the_server_cannot_find_the_command(home, tmp_path, monkeypatch, on_path):
+    # The app service can start without the login shell's PATH (it did after a reboot).
+    from sleeper_gm import chat
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    model = bin_dir / "local-model"
+    model.write_text("#!/bin/sh\necho ok\n")
+    model.chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir) if on_path else str(tmp_path / "empty"))
+    view = chat.state(home, configured(["local-model", "-p"]))
+    assert view["enabled"] is on_path
+    assert view.get("error") == (None if on_path else "Chat is down: the server cannot find local-model. Put its full path in chat.command.")
+    assert chat.state(home, configured([str(model)]))["enabled"] is True
 
 
 @pytest.fixture
@@ -498,3 +516,25 @@ def test_prompt_shows_epoch_times_as_eastern_clock(key, value, human):
     assert isinstance(out, str) is human
     if human:
         assert out.endswith(" ET") and str(int(value)) not in out
+
+
+@pytest.mark.parametrize("path,expected", [("/app.js", ["no-cache"]), ("/", ["no-cache"]), ("/api/chat?league=555", ["no-store"])])
+def test_app_shell_revalidates_and_api_is_never_stored(server, path, expected):
+    _, base = server
+    with urllib.request.urlopen(base + path) as response:
+        assert response.headers.get_all("cache-control") == expected
+
+
+@pytest.mark.parametrize("state,counted_later", [("locked", False), ("pending", True)])
+def test_locked_slot_reaches_the_gm_as_final_without_games_to_come(home, state, counted_later):
+    from sleeper_gm import chat
+    snap = json.loads((home / "now.json").read_text())
+    snap["me"]["slots"] = [{"slot": "F", "state": state, "score": 27.0, "player": {"id": "1", "name": "Starter One",
+                            "games_left": 1, "p_play": .92, "proj": 23.2, "next": {"tip_ms": 1793584800000}}}]
+    (home / "now.json").write_text(json.dumps(snap))
+    text = chat.prompt(home, "who still plays", configured(command_for("ok")))
+    data = json.loads(text.split("BEGIN_UNTRUSTED_DATA_", 1)[1].split("\n", 1)[1].split("\nEND_UNTRUSTED_DATA_", 1)[0])
+    row = data["now"]["me"]["slots"][0]
+    assert ("proj" in row["player"] and "games_left" in row["player"] and "next" in row["player"]) is counted_later
+    assert row.get("final", False) is (not counted_later)
+    assert row["score"] == 27.0

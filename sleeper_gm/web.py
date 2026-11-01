@@ -104,6 +104,9 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header("x-content-type-options", "nosniff")
         self.send_header("referrer-policy", "no-referrer")
+        if not urlparse(self.path).path.startswith("/api/"):
+            # Without this a browser guesses freshness from file age and keeps an old app.js for days.
+            self.send_header("cache-control", "no-cache")
         super().end_headers()
 
     def do_GET(self):

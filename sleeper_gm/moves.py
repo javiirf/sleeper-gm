@@ -107,13 +107,15 @@ def ir_fix(wk, team, roster):
                         why=f"{wk.name(p)} off IR ({status(p) or 'healthy'}), {wk.name(q)} ({status(q)}) takes the IR spot")
         cut = [q for q in bench if not untouchable(wk, team, q)]
         d = min(cut, key=lambda q: keep_value(wk, q)) if cut else None
+        stuck = f"{wk.name(p)} is {status(p) or 'healthy'}, so he cannot stay on IR, and the roster is full"
         if d is not None and keep_value(wk, d) < keep_value(wk, p):
             return Move("drop_then_reserve", drop=d, reserve=[r for r in reserve if r != p],
-                        why=f"{wk.name(p)} is healthy on IR and the roster is full: dropping {wk.name(d)} ({ros(wk, d):.1f}/g) to activate him")
+                        why=f"{stuck}: dropping {wk.name(d)} ({keep_value(wk, d):.1f} a game, {wk.name(p)} {keep_value(wk, p):.1f}) to activate him")
         if not untouchable(wk, team, p):
+            nearest = f", next lowest {wk.name(d)} {keep_value(wk, d):.1f}" if d is not None else ", nobody on the bench is safe to drop"
             return Move("drop_then_reserve", drop=p, reserve=[r for r in reserve if r != p],
-                        why=f"{wk.name(p)} is healthy on IR, the roster is full and he is the weakest option: dropping him")
-        return Move("needs_you", why=f"{wk.name(p)} is healthy on IR, the roster is full and nobody is safe to drop")
+                        why=f"{stuck}: dropping him ({keep_value(wk, p):.1f} a game{nearest})")
+        return Move("needs_you", why=f"{stuck} and nobody is safe to drop")
     if len(reserve) >= max_ir:
         return None
     end_of_week = max((g.date for g in wk.games), default="")

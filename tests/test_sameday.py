@@ -234,3 +234,17 @@ def test_plan_follows_open_slot_when_a_lock_is_respecified(can_move):
     assert list(details) == [open_slot]
     assert details[open_slot]["looks"][0]["id"] == "b"
     assert details[open_slot]["expected_value"] == 20
+
+
+@pytest.mark.parametrize("public_total,scored", [(258.5, None), (300.0, None), (258.5, 251.5)])
+def test_snapshot_points_are_what_is_locked_not_the_public_running_total(tmp_path, monkeypatch, public_total, scored):
+    wk = live_week()
+    wk.now_ms = tip(18)
+    me, opp = week.build_team(wk, 1), week.build_team(wk, 2)
+    me.locked, opp.locked = {0: 40.0, 1: 21.5}, {0: 37.0}
+    wk.legs[1]["points"] = scored
+    ctx = SimpleNamespace(league_id="demo", rid=1, live=False, acted=[], dir=tmp_path)
+    monkeypatch.setattr(cycle.api, "rest", lambda path, *a, **k: [{"roster_id": 1, "points": public_total}, {"roster_id": 2, "points": public_total}]
+                        if "/matchups/" in path else [])
+    snap = cycle.snapshot(ctx, wk, me, opp, None, me.starters, {})
+    assert (snap["me"]["points"], snap["opp"]["points"]) == (scored or 61.5, 37.0)

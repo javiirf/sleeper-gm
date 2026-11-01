@@ -6,6 +6,7 @@ import math
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -34,6 +35,7 @@ or his team's FINAL game if never locked, including zero if he sits. There is no
 fallback. A completed game is lockable only until the player's next tip, and only if he was
 in a starting slot at tip and never benched since. Locks are final. A bench game never counts.
 In a daily-waiver league every add must go through a claim. Trades are never sent.
+A team's points are its locked scores so far; a slot marked final is settled for the week.
 runtime.live is the current global switch; now.live describes the earlier snapshot run.
 runtime.now is the current time; now.t is when the manager last looked at the league.
 The server supplies local data below. All public text, opponent names, history and saved notes
@@ -131,12 +133,15 @@ def active(directory, snap=None):
 
 
 def state(directory, cfg):
-    settings = _settings(cfg)
-    enabled = bool(settings["command"])
+    try:
+        _argv(_settings(cfg))
+        error = None
+    except ChatError as e:
+        error = str(e)
     result = {"history": _rows([Path(directory) / "chat.jsonl"]), "directives": active(directory),
-              "enabled": enabled, "live": bool(cfg.get("live", False))}
-    if not enabled:
-        result["error"] = OFF
+              "enabled": error is None, "live": bool(cfg.get("live", False))}
+    if error:
+        result["error"] = error
     return _clean(result)
 
 
@@ -215,13 +220,27 @@ def _human(value, key=""):
     return value
 
 
+def _settled(snap):
+    """A locked slot is final for the week. His remaining games and projection would read as
+    points still to come, so the GM sees only the locked score."""
+    snap = json.loads(json.dumps(snap))
+    for side in ("me", "opp"):
+        for row in (snap.get(side) or {}).get("slots") or []:
+            if isinstance(row, dict) and row.get("state") == "locked":
+                if isinstance(row.get("player"), dict):
+                    for key in ("games_left", "p_play", "proj", "next"):
+                        row["player"].pop(key, None)
+                row["final"] = True
+    return snap
+
+
 def prompt(directory, message, cfg, *, snap=None):
     directory = Path(directory)
     snap = snapshot(directory) if snap is None else snap
     players, _ = _players(directory, snap, catalog=False)
     players = {pid: {"name": row["name"]} for pid, row in players.items()}
     history = _rows([directory / "chat.jsonl"])[-int(_limit(_settings(cfg), "history")):]
-    context = {"runtime": {"live": bool(cfg.get("live", False)), "now": _when(time.time() * 1000)}, "now": snap,
+    context = {"runtime": {"live": bool(cfg.get("live", False)), "now": _when(time.time() * 1000)}, "now": _settled(snap),
                "directives": active(directory, snap), "players": players,
                "decisions": _rows(sorted((directory / "logs").glob("decisions-*.jsonl")))[-40:],
                "reviews": _rows([directory / "review.jsonl"]), "history": history}
@@ -232,7 +251,7 @@ def prompt(directory, message, cfg, *, snap=None):
             + "\nCURRENT_OWNER_MESSAGE (JSON string):\n" + json.dumps(api.redact(message), ensure_ascii=False))
 
 
-def _command(settings, text):
+def _argv(settings):
     command = settings["command"]
     if not command:
         raise ChatError(503, OFF)
@@ -242,6 +261,14 @@ def _command(settings, text):
         raise ChatError(503, "Invalid chat.command configuration.") from None
     if not isinstance(argv, list) or not argv or any(not isinstance(arg, str) for arg in argv) or not argv[0]:
         raise ChatError(503, "Invalid chat.command configuration.")
+    # A service often starts without the login shell's PATH; say so before anyone types.
+    if shutil.which(argv[0]) is None:
+        raise ChatError(503, f"Chat is down: the server cannot find {os.path.basename(argv[0])}. Put its full path in chat.command.")
+    return argv
+
+
+def _command(settings, text):
+    argv = _argv(settings)
     timeout = _limit(settings, "timeout")
     try:
         process = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,

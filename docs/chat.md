@@ -24,6 +24,12 @@ array avoids quoting surprises. Neither form runs through a shell, so pipes and 
 not supported. Nonzero exit status returns a generic error; model stderr is never exposed.
 Timeout returns HTTP 504 and kills the process group on POSIX systems.
 
+If `sleeper-gm web` runs as a service, give the command's full path (for example
+`/home/you/.local/bin/claude`): a service started at boot often lacks your shell's PATH.
+The Ask tab checks the command when it opens and says
+`Chat is down: the server cannot find claude. Put its full path in chat.command.` instead of
+failing on the first message.
+
 The corresponding Codex stdin/stdout command shape is:
 
 ```json

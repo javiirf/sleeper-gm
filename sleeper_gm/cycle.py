@@ -608,14 +608,12 @@ def snapshot(ctx, wk, me, opp, dec, starters, done, write=True):
             out.append(row)
         return out
 
-    try:  # the legs carry no points until a week is scored; this is Sleeper's running total
-        running = {m["roster_id"]: m.get("points") for m in api.rest(f"/v1/league/{ctx.league_id}/matchups/{wk.week}", fresh=True) or []}
-    except api.SleeperError:
-        running = {}
-
     def points(team):
+        # The legs carry no points until a week is scored. Until then count what is banked:
+        # Sleeper's public running total adds each starter's latest game and ignores locks,
+        # so it can show a lead in a week that is already lost.
         rid = ctx.rid if team is me else wk.opp_rid
-        return wk.legs[rid].get("points") or running.get(rid) or 0
+        return wk.legs[rid].get("points") or round(sum(team.locked.values()), 1)
 
     roster = wk.rosters[ctx.rid]
     bench = [p for p in roster.get("players") or [] if p not in starters and p not in (roster.get("reserve") or [])]
